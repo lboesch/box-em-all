@@ -70,12 +70,6 @@ class DotsAndBoxes:
 
     # Check if a move is valid
     def is_valid_move(self, row, col):
-        # if (
-        #     (row % 2 == 1 and col % 2 == 0) or
-        #     (row % 2 == 0 and col % 2 == 1)
-        # ):
-        #     return self.is_edge_empty(row, col)
-        # return False
         return (row, col) in self.available_moves
 
     # Make a move
@@ -98,8 +92,10 @@ class DotsAndBoxes:
             return True
     
     # Check for any boxes that this edge might have completed
-    def check_for_completed_boxes(self, row, col):
+    def check_for_completed_boxes(self, row, col, sim=None):
         completed_boxes = []
+        if sim:
+           self.draw_edge(row, col)  # TODO remove workaround
         if self.is_horizontal_edge(row, col):  # Horizontal edge
             for dx in [-1, 1]:
                 if 0 <= row + dx < self.board.shape[0] and self.check_box(row + dx, col):
@@ -108,6 +104,8 @@ class DotsAndBoxes:
             for dy in [-1, 1]:
                 if 0 <= col + dy < self.board.shape[1] and self.check_box(row, col + dy):
                     completed_boxes.append((row, col + dy))
+        if sim:
+            self.remove_edge(row, col)  # TODO remove workaround
         return completed_boxes
     
     def check_box(self, x, y):
@@ -151,16 +149,16 @@ class DotsAndBoxes:
             print(f"Available moves -> {self.available_moves}")
             print(f"Score -> Player 1: {self.player_1.player_score}, Player 2: {self.player_2.player_score}")
             print(f"Player -> {self.current_player.player_name}'s turn.")
-            try:
-                move = self.current_player.choose_move(self)
-                if move:
-                    row, col = move
-                    another_turn = self.make_move(row, col)
-                    if not another_turn:
-                        # if not self.check_boxes():  # If no box is completed, switch the player
-                        self.switch_player()
-            except ValueError:
-                print("Invalid input. Enter two integers separated by a space.")
+            # try:
+            box_closed = self.current_player.play_turn(self)
+                # if move:
+                #     row, col = move
+                #     another_turn = self.make_move(row, col)
+            if not box_closed:
+                # if not self.check_boxes():  # If no box is completed, switch the player
+                self.switch_player()
+            # except ValueError:
+            #     print("Invalid input. Enter two integers separated by a space.")
         
         # Game Over
         self.print_board()
