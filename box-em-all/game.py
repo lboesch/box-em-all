@@ -141,14 +141,15 @@ class DotsAndBoxes:
         return self.player_1.player_score + self.player_2.player_score == self.total_boxes
 
     # Play game
-    def play(self):
+    def play(self, print_board=None):
         # Turn based game until game over
         # while not self.is_game_over():
         while self.available_moves:
-            self.print_board()
-            print(f"Available moves -> {self.available_moves}")
-            print(f"Score -> Player 1: {self.player_1.player_score}, Player 2: {self.player_2.player_score}")
-            print(f"Player -> {self.current_player.player_name}'s turn.")
+            if print_board:
+                self.print_board()
+                print(f"Available moves -> {self.available_moves}")
+                print(f"Score -> Player 1: {self.player_1.player_score}, Player 2: {self.player_2.player_score}")
+                print(f"Player -> {self.current_player.player_name}'s turn.")
             # try:
             box_closed = self.current_player.play_turn(self)
                 # if move:
@@ -161,14 +162,15 @@ class DotsAndBoxes:
             #     print("Invalid input. Enter two integers separated by a space.")
         
         # Game Over
-        self.print_board()
-        print("Game Over!")
-        
-        # Final Score
-        print(f"Final Scores -> Player 1: {self.player_1.player_score}, Player 2: {self.player_2.player_score}")
-        if self.player_1.player_score > self.player_2.player_score:
-            print("Player 1 wins!")
-        elif self.player_2.player_score > self.player_1.player_score:
-            print("Player 2 wins!")
-        else:
-            print("It's a draw!")
+        if print_board:
+            self.print_board()
+            print("Game Over!")
+            
+            # Final Score
+            print(f"Final Scores -> Player 1: {self.player_1.player_score}, Player 2: {self.player_2.player_score}")
+            if self.player_1.player_score > self.player_2.player_score:
+                print("Player 1 wins!")
+            elif self.player_2.player_score > self.player_1.player_score:
+                print("Player 2 wins!")
+            else:
+                print("It's a draw!")

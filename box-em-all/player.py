@@ -24,6 +24,14 @@ class Human(Player):
             print("Invalid input. Enter two integers separated by a space.")
             return True
         
+# Random Player
+class ComputerRandom(Player):
+    def play_turn(self, game):
+        move = ()
+        # If no box-completing moves, pick a random available move
+        move = random.choice(game.available_moves)   
+        row, col = move    
+        return game.make_move(row, col)
         
 # Greedy Player
 class ComputerGreedy(Player):
@@ -72,5 +80,21 @@ class ComputerQLearner(Player):
         self.total_reward += reward
 
         self.learner.update_q_table(game, old_state, action, reward)
+
+        return box_completed
+    
+# Q Table Player
+class ComputerQTable(Player):
+    def __init__(self, player_number, player_name, model):
+        self.q_table = model
+        super().__init__(player_number, player_name)
+
+    def play_turn(self, game):
+        available_actions = game.get_available_moves()
+       
+        action = max(available_actions, key=lambda x: self.q_table.get((game.board.tobytes(), x), 0))
+            
+        row, col = action    
+        box_completed = game.make_move(row, col)
 
         return box_completed
