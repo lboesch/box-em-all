@@ -27,6 +27,10 @@ class DotsAndBoxes:
         for row in self.board:
             print(" ".join(row))
         print("\n")
+        print("game state: ", self.get_game_state())
+        
+    def get_game_state(self):
+        return np.append(self.board[1::2, ::2] != ' ', self.board[::2, 1::2] != ' ').flatten().astype(int)
         
     # Check if edge is empty
     def is_edge_empty(self, row, col):
