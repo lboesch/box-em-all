@@ -1,13 +1,12 @@
 from abc import ABC, abstractmethod
-import random
 import numpy as np
-import model
+import random
 
 class Player(ABC):
     def __init__(self, player_number, player_name):
         self.player_number = player_number
         self.player_name = player_name
-        self.player_score = 0
+        self.player_score = 0  # TODO move to game
         
     @abstractmethod
     def play_turn(self, game):
@@ -51,57 +50,52 @@ class ComputerGreedy(Player):
             move = random.choice(game.available_moves)
             
         row, col = move    
-    
         return game.make_move(row, col)
 
-# Q Learning Player
-class ComputerQLearner(Player):
-    def __init__(self, player_number, player_name, learner):
-        self.total_reward = 0
-        self.learner = learner
+# Q-learning Player
+class ComputerQLearning(Player):
+    def __init__(self, player_number, player_name, model):
         super().__init__(player_number, player_name)
+        self.model = model
+        self.total_reward = 0
 
     def play_turn(self, game):
-        available_actions = game.get_available_moves()
-        
         old_state = np.copy(game.board)            
                                   
         # Epsilon-greedy action selection
-        if random.uniform(0, 1) < self.learner.epsilon:
-            action = random.choice(available_actions)
+        if random.uniform(0, 1) < self.model.epsilon:
+            action = random.choice(game.available_moves)
         else:
-            action = max(available_actions, key=lambda x: self.learner.q_table.get((game.board.tobytes(), x), 0))
-            
-        row, col = action
-        box_completed = game.make_move(row, col)
+            action = max(game.available_moves, key=lambda x: self.model.q_table.get((game.board.tobytes(), x), 0))          
         
-        boxes_4_edges = game.check_boxes(row, col, edges=4)
+        row, col = action
+        
+        another_move = game.make_move(row, col)
         boxes_3_edges = game.check_boxes(row, col, edges=3)
+        boxes_4_edges = game.check_boxes(row, col, edges=4)
 
-        # reward = 1 if box_completed else -1 if len(boxes_3_edges) > 0 else 0
+        # Calculate reward
+        # reward = 1 if another_move else -1 if len(boxes_3_edges) > 0 else 0
         reward = 0
-        if box_completed:
+        if another_move:
             reward += len(boxes_4_edges) + 0.5 * len(boxes_3_edges)
         else:
             reward -= 2 * len(boxes_3_edges)
         self.total_reward += reward
 
-        self.learner.update_q_table(game, old_state, action, reward)
+        # Update Q-table
+        self.model.update_q_table(game, old_state, action, reward)
 
-        return box_completed
+        return another_move
     
-# Q Table Player
+# Q-table Player
 class ComputerQTable(Player):
     def __init__(self, player_number, player_name, model):
-        self.q_table = model
         super().__init__(player_number, player_name)
+        self.model = model
 
     def play_turn(self, game):
-        available_actions = game.get_available_moves()
-       
-        action = max(available_actions, key=lambda x: self.q_table.get((game.board.tobytes(), x), 0))
-            
+        action = max(game.available_moves, key=lambda x: self.model.q_table.get((game.board.tobytes(), x), 0))
         row, col = action    
-        box_completed = game.make_move(row, col)
-
-        return box_completed
+        another_move = game.make_move(row, col)
+        return another_move

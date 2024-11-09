@@ -23,12 +23,12 @@ class DotsAndBoxes:
     def print_board(self):
         print("\n")
         print("Current Board:")
-        # print(" ".join(map(str, list(range(0, len(self.board) + 2)))))
+        # TODO print(" ".join(map(str, list(range(0, len(self.board) + 2)))))
         for row in self.board:
             print(" ".join(row))
         print("\n")
-        print("game state: ", self.get_game_state())
-        
+       
+    # Get current game state as flattened vector
     def get_game_state(self):
         return np.append(self.board[1::2, ::2] != ' ', self.board[::2, 1::2] != ' ').flatten().astype(int)
         
@@ -36,9 +36,11 @@ class DotsAndBoxes:
     def is_edge_empty(self, row, col):
         return self.board[row, col] == " "
     
+    # Check if edge is horizontal
     def is_horizontal_edge(self, row, col):
         return row % 2 == 0 and col % 2 == 1
-        
+    
+    # Check if edge is vertical
     def is_vertical_edge(self, row, col):
         return row % 2 == 1 and col % 2 == 0
     
@@ -84,18 +86,18 @@ class DotsAndBoxes:
                 for completed_box in completed_boxes:
                     self.board[completed_box] = str(self.current_player.player_number)
                     self.current_player.player_score += 1
-                return True  # Another move
+                return True  # Box completed -> another move
             else:
-                return False  # Switch player
+                return False  # Box not completed -> switch player
         else:
             print("Invalid move. Try again.")
-            return True
+            return True  # Invalid move -> another move
     
     # Check for any boxes that this edge might have completed
     def check_boxes(self, row, col, edges=4, sim=None):
         boxes = []
         if sim:
-           self.draw_edge(row, col)  # TODO remove workaround
+           self.draw_edge(row, col)  # Draw edge (for simulation)
         if self.is_horizontal_edge(row, col):  # Horizontal edge
             for dx in [-1, 1]:
                 if 0 <= row + dx < self.board.shape[0] and self.count_box_edges(row + dx, col) == edges:
@@ -105,7 +107,7 @@ class DotsAndBoxes:
                 if 0 <= col + dy < self.board.shape[1] and self.count_box_edges(row, col + dy) == edges:
                     boxes.append((row, col + dy))
         if sim:
-            self.remove_edge(row, col)  # TODO remove workaround
+            self.remove_edge(row, col)  # Remove edge (for simulation)
         return boxes
     
     def count_box_edges(self, x, y):
@@ -152,25 +154,20 @@ class DotsAndBoxes:
         while self.available_moves:
             if print_board:
                 self.print_board()
+                print("--------------------------------------------------------------------------------")
                 print(f"Available moves -> {self.available_moves}")
                 print(f"Score -> Player 1: {self.player_1.player_score}, Player 2: {self.player_2.player_score}")
                 print(f"Player -> {self.current_player.player_name}'s turn.")
-            # try:
-            box_closed = self.current_player.play_turn(self)
-                # if move:
-                #     row, col = move
-                #     another_turn = self.make_move(row, col)
-            if not box_closed:
-                # if not self.check_boxes():  # If no box is completed, switch the player
+                print("--------------------------------------------------------------------------------")
+            another_move = self.current_player.play_turn(self)
+            if not another_move:
                 self.switch_player()
-            # except ValueError:
-            #     print("Invalid input. Enter two integers separated by a space.")
         
         # Game Over
         if print_board:
             self.print_board()
+            print("--------------------------------------------------------------------------------")
             print("Game Over!")
-            
             # Final Score
             print(f"Final Scores -> Player 1: {self.player_1.player_score}, Player 2: {self.player_2.player_score}")
             if self.player_1.player_score > self.player_2.player_score:
@@ -178,4 +175,5 @@ class DotsAndBoxes:
             elif self.player_2.player_score > self.player_1.player_score:
                 print("Player 2 wins!")
             else:
-                print("It's a draw!")
+                print("It's a tie!")
+            print("--------------------------------------------------------------------------------")
