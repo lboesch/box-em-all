@@ -79,7 +79,7 @@ class DotsAndBoxes:
             # Draw edge
             self.draw_edge(row, col)
             # Check for completed boxes
-            completed_boxes = self.check_for_completed_boxes(row, col)
+            completed_boxes = self.check_boxes(row, col)
             if len(completed_boxes) > 0:
                 for completed_box in completed_boxes:
                     self.board[completed_box] = str(self.current_player.player_number)
@@ -92,30 +92,35 @@ class DotsAndBoxes:
             return True
     
     # Check for any boxes that this edge might have completed
-    def check_for_completed_boxes(self, row, col, sim=None):
-        completed_boxes = []
+    def check_boxes(self, row, col, edges=4, sim=None):
+        boxes = []
         if sim:
            self.draw_edge(row, col)  # TODO remove workaround
         if self.is_horizontal_edge(row, col):  # Horizontal edge
             for dx in [-1, 1]:
-                if 0 <= row + dx < self.board.shape[0] and self.check_box(row + dx, col):
-                    completed_boxes.append((row + dx, col))
+                if 0 <= row + dx < self.board.shape[0] and self.count_box_edges(row + dx, col) == edges:
+                    boxes.append((row + dx, col))
         elif self.is_vertical_edge(row, col):  # Vertical edge
             for dy in [-1, 1]:
-                if 0 <= col + dy < self.board.shape[1] and self.check_box(row, col + dy):
-                    completed_boxes.append((row, col + dy))
+                if 0 <= col + dy < self.board.shape[1] and self.count_box_edges(row, col + dy) == edges:
+                    boxes.append((row, col + dy))
         if sim:
             self.remove_edge(row, col)  # TODO remove workaround
-        return completed_boxes
+        return boxes
     
-    def check_box(self, x, y):
+    def count_box_edges(self, x, y):
+        edges = 0
         # Check if all edges of the box centered at (x, y) are filled
-        return (
-            not self.is_edge_empty(x - 1, y) and
-            not self.is_edge_empty(x + 1, y) and
-            not self.is_edge_empty(x, y - 1) and
-            not self.is_edge_empty(x, y + 1)
-        )
+        if not self.is_edge_empty(x - 1, y):
+            edges += 1
+        if not self.is_edge_empty(x + 1, y):
+            edges += 1
+        if not self.is_edge_empty(x, y - 1):
+            edges += 1
+        if not self.is_edge_empty(x, y + 1):
+            edges += 1
+            
+        return edges
 
     # Check if a box is completed
     # def check_boxes(self):

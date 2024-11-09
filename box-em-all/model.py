@@ -4,9 +4,10 @@ import random
 class QLearn:
     def __init__(self, alpha, gamma, epsilon):
         # Hyperparameters
-        self.alpha = alpha
-        self.gamma = gamma
-        self.epsilon = epsilon
+        self.alpha = alpha  # Learning rate
+        self.gamma = gamma  # Discount factor
+        self.epsilon = epsilon  # Exploration rate
+        
         # Initialize Q-table
         self.q_table = {}
         

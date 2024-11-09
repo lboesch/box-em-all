@@ -7,19 +7,24 @@ import os
 def main():
     epochs = 100000
     score = {'P1': 0, 'P2': 0, 'Tie': 0}
+    is_human = False
     do_train = False
     
     # Learner / Model
-    learner = model.QLearn(alpha = 0.1, gamma = 0.9, epsilon = 0.1)
+    learner = model.QLearn(alpha = 0.1, gamma = -0.2, epsilon = 0.1)
     q_table = np.load('model/q_table_2_2.npy', allow_pickle=True).item()
 
     for _ in range(epochs):
         # Player
-        player_1 = player.Human(1, 'Human1')
-        # player_1 = player.ComputerRandom(1, 'Random1')
-        # player_1 = player.ComputerGreedy(1, 'Greedy1')
-        # player_2 = player.Human(2, 'Human2')
-        # player_2 = player.ComputerGreedy(2, 'Greedy2')
+        if is_human:
+            player_1 = player.Human(1, 'Human1')
+            # player_2 = player.Human(2, 'Human2')
+        else:
+            if do_train:
+                player_1 = player.ComputerRandom(1, 'Random1')
+            else:
+                player_1 = player.ComputerGreedy(1, 'Greedy1')
+            # player_2 = player.ComputerGreedy(2, 'Greedy2')
         
         if do_train:
             player_2 = player.ComputerQLearner(2, 'QLearner2', learner)
@@ -28,7 +33,7 @@ def main():
 
         #Game
         game = DotsAndBoxes(rows=2, cols=2, player_1=player_1, player_2=player_2)
-        game.play(print_board=True)
+        game.play(print_board=is_human)
         
         if game.player_1.player_score > game.player_2.player_score:
             score['P1'] += 1
@@ -39,13 +44,11 @@ def main():
     
     print("*******************")
     print("FinalScore: ", score)
-    print("P1 Win: ", score['P1'] / epochs * 100)
-    print("P2 Win: ", score['P2'] / epochs * 100)
+    print(f"P1 ({game.player_1.player_name}) Win: {score['P1'] / epochs * 100}")
+    print(f"P2 ({game.player_2.player_name}) Win: {score['P2'] / epochs * 100}")
     print("*******************")
     # print(learner.q_table)
-    
-    # print("blabla : " , os.getcwd())
-    
+        
     # Save Model
     if do_train:
         os.makedirs('model', exist_ok=True)

@@ -41,7 +41,7 @@ class ComputerGreedy(Player):
         for available_move in game.available_moves:
             row, col = available_move
             if game.is_valid_move(row, col):
-                completed_boxes = len(game.check_for_completed_boxes(row, col, sim=True))
+                completed_boxes = len(game.check_boxes(row, col, sim=True))
                 if completed_boxes > 0:
                     move = (row, col)
                     break
@@ -64,7 +64,6 @@ class ComputerQLearner(Player):
     def play_turn(self, game):
         available_actions = game.get_available_moves()
         
-
         old_state = np.copy(game.board)            
                                   
         # Epsilon-greedy action selection
@@ -73,10 +72,18 @@ class ComputerQLearner(Player):
         else:
             action = max(available_actions, key=lambda x: self.learner.q_table.get((game.board.tobytes(), x), 0))
             
-        row, col = action    
+        row, col = action
         box_completed = game.make_move(row, col)
+        
+        boxes_4_edges = game.check_boxes(row, col, edges=4)
+        boxes_3_edges = game.check_boxes(row, col, edges=3)
 
-        reward = 1 if box_completed else 0
+        # reward = 1 if box_completed else -1 if len(boxes_3_edges) > 0 else 0
+        reward = 0
+        if box_completed:
+            reward += len(boxes_4_edges) + 0.5 * len(boxes_3_edges)
+        else:
+            reward -= 2 * len(boxes_3_edges)
         self.total_reward += reward
 
         self.learner.update_q_table(game, old_state, action, reward)
