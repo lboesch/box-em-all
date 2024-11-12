@@ -7,18 +7,27 @@ class DotsAndBoxes:
         self.rows = rows
         self.cols = cols
         self.total_boxes = self.rows * self.cols
-        self.board = np.full(shape=(2 * self.rows + 1, 2 * self.cols + 1), fill_value=" ")
-        self.board[::2, ::2] = "•"
-        # Initialize available moves
-        self.available_moves = self.get_available_moves()
+        self.empty_board = np.full(shape=(2 * self.rows + 1, 2 * self.cols + 1), fill_value=" ")
+        self.empty_board[::2, ::2] = "•"
         # Initialize players
         self.player_1 = player_1
         self.player_2 = player_2
         # self.current_player = self.player_1
-        self.current_player = random.choice((self.player_1, self.player_2))
         # Initialize score
         # self.scores = {self.player_1.player_number: self.player_1.player_score, self.player_2.player_number: self.player_2.player_score}
-                 
+        # Reset game
+        self.reset()
+        
+    def reset(self):
+        # Reset board
+        self.board = np.copy(self.empty_board)
+        # Reset available moves
+        self.available_moves = self.get_available_moves()
+        # Reset player
+        self.current_player = random.choice((self.player_1, self.player_2))
+        self.player_1.reset()
+        self.player_2.reset()
+
     # Prints the board     
     def print_board(self):
         print("\n")

@@ -3,9 +3,12 @@ import numpy as np
 import random
 
 class Player(ABC):
-    def __init__(self, player_number, player_name):
+    def __init__(self, player_number: int, player_name: str):
         self.player_number = player_number
         self.player_name = player_name
+        self.reset()
+        
+    def reset(self):
         self.player_score = 0  # TODO move to game
         
     @abstractmethod
@@ -57,6 +60,10 @@ class ComputerQLearning(Player):
     def __init__(self, player_number, player_name, model):
         super().__init__(player_number, player_name)
         self.model = model
+        self.reset()
+    
+    def reset(self):
+        super().reset()
         self.total_reward = 0
 
     def play_turn(self, game):
@@ -66,7 +73,7 @@ class ComputerQLearning(Player):
         if random.uniform(0, 1) < self.model.epsilon:
             action = random.choice(game.available_moves)
         else:
-            action = max(game.available_moves, key=lambda x: self.model.q_table.get((game.board.tobytes(), x), 0))          
+            action = max(game.available_moves, key=lambda move: self.model.q_table.get((game.board.tobytes(), move), 0))          
         
         row, col = action
         
@@ -75,12 +82,24 @@ class ComputerQLearning(Player):
         boxes_4_edges = game.check_boxes(row, col, edges=4)
 
         # Calculate reward
-        # reward = 1 if another_move else -1 if len(boxes_3_edges) > 0 else 0
         reward = 0
         if another_move:
-            reward += len(boxes_4_edges) + 0.5 * len(boxes_3_edges)
+            # Box completed 
+            reward += len(boxes_4_edges) + 0.2 * len(boxes_3_edges)
         else:
-            reward -= 2 * len(boxes_3_edges)
+            # Giving advantage to opponent
+            if len(boxes_3_edges) > 0:
+                reward -= len(boxes_3_edges)
+            # Drawing edge without completing a box
+            else:
+                reward -= 0.1
+        if len(game.available_moves) == 0:
+            # Winning a game
+            if self.player_score > game.player_1.player_score:
+                reward += 5
+            # Loosing a game
+            elif self.player_score < game.player_1.player_score:
+                reward -= 5
         self.total_reward += reward
 
         # Update Q-table
@@ -95,7 +114,7 @@ class ComputerQTable(Player):
         self.model = model
 
     def play_turn(self, game):
-        action = max(game.available_moves, key=lambda x: self.model.q_table.get((game.board.tobytes(), x), 0))
+        action = max(game.available_moves, key=lambda move: self.model.q_table.get((game.board.tobytes(), move), 0))
         row, col = action    
         another_move = game.make_move(row, col)
         return another_move
