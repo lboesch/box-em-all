@@ -5,16 +5,14 @@ import wandb
 
 def main():
     is_human = False
-    do_train = False
-    use_wandb = False
-    if not is_human and not do_train and use_wandb:
+    do_train = True
+    use_wandb = True
+    if not is_human and do_train and use_wandb:
         wandb.login()
 
-    epochs = 1000000
-    verification_epochs = 10000
+    epochs = 100000
+    verification_epochs = 100
     score = {'P1': 0, 'P2': 0, 'Tie': 0}
-    is_human = False
-    do_train = False
     extend_table = False
 
     rows = 3
@@ -22,11 +20,11 @@ def main():
     gamma = 0.4
     epsilon = 0.1
 
-    debug = True
+    debug = False
 
     model_name = 'q_table_' + str(rows)
 
-    if not is_human and not do_train and use_wandb:
+    if not is_human and do_train and use_wandb:
         run = wandb.init(
             # Set the project where this run will be logged
             project="box-em-all",
@@ -38,7 +36,9 @@ def main():
                 "epsilon": epsilon,
                 "epochs": epochs,
                 "verification_epochs": verification_epochs,
+                "game-state": "with-both-players",
             },
+            tags=["q-learning", "dots-and-boxes"]
         )
     
     # Model
@@ -87,8 +87,8 @@ def main():
             print(f"P2 ({verification_game.player_2.player_name}) Win: {round(score['P2'] / verification_epochs * 100, 2)}%")
             print("--------------------------------------------------------------------------------")    
 
-        if not is_human and not do_train and use_wandb:
-            wandb.log({"win-greedy": round(score['P1'] / verification_epochs * 100, 2), "win-qplayer": round(score['P2'] / verification_epochs * 100, 2), "tie": round(score['Tie'] / verification_epochs * 100, 2)})
+        if not is_human and do_train and use_wandb:
+            wandb.log({"epoch": epoch, "win-greedy": round(score['P1'] / verification_epochs * 100, 2), "win-qplayer": round(score['P2'] / verification_epochs * 100, 2), "tie": round(score['Tie'] / verification_epochs * 100, 2)})
 
     
 
