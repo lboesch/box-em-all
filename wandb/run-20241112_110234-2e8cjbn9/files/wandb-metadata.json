@@ -1,0 +1,39 @@
+{
+  "os": "macOS-14.6.1-arm64-arm-64bit-Mach-O",
+  "python": "3.13.0",
+  "startedAt": "2024-11-12T10:02:34.015344Z",
+  "program": "/Users/lorenzbosch/Workspaces/cas-ost/box-project/box-em-all/box-em-all/main.py",
+  "codePath": "box-em-all/main.py",
+  "git": {
+    "remote": "git@github.com:lboesch/box-em-all.git",
+    "commit": "f2bac2a07ffb42526fe798ee364945bd463636ac"
+  },
+  "email": "lorenz@smartive.ch",
+  "root": "/Users/lorenzbosch/Workspaces/cas-ost/box-project/box-em-all",
+  "host": "Lorenzs-MacBook-Pro-2.local",
+  "username": "lorenzbosch",
+  "executable": "/Users/lorenzbosch/Library/Caches/pypoetry/virtualenvs/box-em-all-DfuYsDnW-py3.13/bin/python",
+  "codePathLocal": "box-em-all/main.py",
+  "cpu_count": 10,
+  "cpu_count_logical": 10,
+  "disk": {
+    "/": {
+      "total": "994662584320",
+      "used": "590478483456"
+    }
+  },
+  "memory": {
+    "total": "34359738368"
+  },
+  "cpu": {
+    "count": 10,
+    "countLogical": 10
+  },
+  "apple": {
+    "name": "Apple M1 Pro",
+    "ecpuCores": 2,
+    "pcpuCores": 8,
+    "gpuCores": 16,
+    "memoryGb": 32
+  }
+}
