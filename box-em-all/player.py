@@ -6,9 +6,6 @@ class Player(ABC):
     def __init__(self, player_number: int, player_name: str):
         self.player_number = player_number
         self.player_name = player_name
-        self.reset()
-        
-    def reset(self):
         self.player_score = 0  # TODO move to game
         
     @abstractmethod
@@ -60,10 +57,6 @@ class ComputerQLearning(Player):
     def __init__(self, player_number, player_name, model):
         super().__init__(player_number, player_name)
         self.model = model
-        self.reset()
-    
-    def reset(self):
-        super().reset()
         self.total_reward = 0
 
     def play_turn(self, game):
