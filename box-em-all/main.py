@@ -73,7 +73,6 @@ def main():
     """
     # rewards = {}
     for epoch in (pbar := tqdm(range(epochs if do_train else 1))):
-        score = {'P1': 0, 'P2': 0, 'Tie': 0}
         # Training
         pbar.set_description(f"Training Epoch {epoch}")
         if do_train:
@@ -83,9 +82,10 @@ def main():
             game.play()
     
         # Verification
-        verification_player_1 = player.ComputerGreedy(1, 'Greedy1')
-        verification_player_2 = player.ComputerQTable(2, 'QTable2', q_learning)
+        score = {'P1': 0, 'P2': 0, 'Tie': 0}
         for _ in range(verification_epochs):
+            verification_player_1 = player.ComputerGreedy(1, 'Greedy1')
+            verification_player_2 = player.ComputerQTable(2, 'QTable2', q_learning)
             verification_game = DotsAndBoxes(rows=board_size, cols=board_size, player_1=verification_player_1, player_2=verification_player_2)
             verification_game.play()
             # Update player score
@@ -97,7 +97,7 @@ def main():
                 score['Tie'] += 1
         
         # Verification results
-        if debug or ((epoch % 1000) == 0): 
+        if debug or (epoch % 1000 == 0): 
             # Print final score accross all verification epochs
             print("--------------------------------------------------------------------------------")
             print(f"Final Score in epoch {epoch}: {score}")
