@@ -60,15 +60,19 @@ class ComputerQLearning(Player):
         self.total_reward = 0
 
     def play_turn(self, game):
-        old_state = np.copy(game.get_game_state())            
+
+        state, index = game.get_canonical_state_and_rotation()
+        moves = game.get_canonical_moves(index);
+
+        old_state = state    
                                   
         # Epsilon-greedy action selection
         if random.uniform(0, 1) < self.model.epsilon:
-            action = random.choice(game.available_moves)
+            action = random.choice(moves)
         else:
-            action = max(game.available_moves, key=lambda x: self.model.q_table.get((game.get_game_state().tobytes(), x), 0))          
+            action = max(moves, key=lambda x: self.model.q_table.get((state, x), 0))          
         
-        row, col = action
+        row, col = game.inverse_rotate_move(action, index)
         
         another_move = game.make_move(row, col)
         boxes_3_edges = game.check_boxes(row, col, edges=3)
@@ -78,9 +82,9 @@ class ComputerQLearning(Player):
         # reward = 1 if another_move else -1 if len(boxes_3_edges) > 0 else 0
         reward = 0
         if another_move:
-            reward += len(boxes_4_edges) + 0.5 * len(boxes_3_edges)
+            reward += len(boxes_4_edges) + len(boxes_3_edges)
         else:
-            reward -= 2 * len(boxes_3_edges)
+            reward -= 4 * len(boxes_3_edges)
         self.total_reward += reward
 
         # Update Q-table
@@ -95,7 +99,9 @@ class ComputerQTable(Player):
         self.model = model
 
     def play_turn(self, game):
-        action = max(game.available_moves, key=lambda x: self.model.q_table.get((game.get_game_state().tobytes(), x), 0))
-        row, col = action    
+        state, index = game.get_canonical_state_and_rotation()
+        moves = game.get_canonical_moves(index);
+        action = max(moves, key=lambda x: self.model.q_table.get((state, x), 0))
+        row, col = game.inverse_rotate_move(action, index)
         another_move = game.make_move(row, col)
         return another_move

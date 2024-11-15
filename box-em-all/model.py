@@ -33,7 +33,11 @@ class QLearning:
     def update_q_table(self, game, old_state, action, reward, another_move):
         is_fututre_move = 1 if another_move else -1
         # Q-learning formula
-        old_q_value = self.q_table.get((old_state.tobytes(), action), 0)
-        max_future_q = max([self.q_table.get((game.get_game_state().tobytes(), a), 0) for a in game.available_moves], default=0)
-        new_q_value = old_q_value + self.alpha * (reward + is_fututre_move * self.gamma * max_future_q - old_q_value)
-        self.q_table[(old_state.tobytes(), action)] = new_q_value
+        old_q_value = self.q_table.get((old_state, action), 0)
+        state, index = game.get_canonical_state_and_rotation()
+        moves = game.get_canonical_moves(index);
+
+        max_future_q = max([self.q_table.get((state, a), 0) for a in moves], default=0)
+        update_value = reward + is_fututre_move * self.gamma * max_future_q
+        new_q_value = old_q_value + self.alpha * (update_value - old_q_value)
+        self.q_table[(old_state, action)] = new_q_value

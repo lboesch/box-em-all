@@ -10,12 +10,12 @@ def main():
     if not is_human and do_train and use_wandb:
         wandb.login()
 
-    epochs = 100000
-    verification_epochs = 100
+    epochs = 10000
+    verification_epochs = 10
     score = {'P1': 0, 'P2': 0, 'Tie': 0}
     extend_table = False
 
-    rows = 3
+    rows = 2
     alpha = 0.1
     gamma = 0.4
     epsilon = 0.1
@@ -36,7 +36,7 @@ def main():
                 "epsilon": epsilon,
                 "epochs": epochs,
                 "verification_epochs": verification_epochs,
-                "game-state": "with-both-players",
+                "game-state": "try with rotation invariant state",
             },
             tags=["q-learning", "dots-and-boxes"]
         )
@@ -61,6 +61,7 @@ def main():
         # Player 1
         if do_train:
             player_1 = player.ComputerRandom(1, 'Random1')
+            #player_1 = player.ComputerGreedy(1, 'Greedy1')
             player_2 = player.ComputerQLearning(2, 'QLearning2', q_learning)
             # Play game
             game = DotsAndBoxes(rows=rows, cols=rows, player_1=player_1, player_2=player_2)
@@ -79,7 +80,7 @@ def main():
             else:
                 score['Tie'] += 1
 
-        if debug or ((epoch % 1000) == 0): 
+        if debug or (((epoch % 1000) == 0) and not use_wandb): 
             # Print final score accross all verification epochs
             print("--------------------------------------------------------------------------------")
             print(f"Final Score in epoch {epoch}: {score}")

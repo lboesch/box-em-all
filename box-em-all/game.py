@@ -27,10 +27,90 @@ class DotsAndBoxes:
         for row in self.board:
             print(" ".join(row))
         print("\n")
-       
+
+        # print("Print 90g Board:")
+        # rotated_board = np.rot90(self.board, k=90 // 90)
+        # # TODO print(" ".join(map(str, list(range(0, len(self.board) + 2)))))
+        # for row in rotated_board:
+        #     print(" ".join(row))
+        # print("\n")
+
+        # print("Print 180g Board:")
+        # rotated_board = np.rot90(self.board, k=180 // 90)
+        # # TODO print(" ".join(map(str, list(range(0, len(self.board) + 2)))))
+        # for row in rotated_board:
+        #     print(" ".join(row))
+        # print("\n")
+
+        # state, index = self.get_canonical_state_and_rotation()
+        # print("Print Canonical Board:")
+        # print(state)
+        # moves = self.get_canonical_moves(index);
+        # print("canonical moves -> ", moves)
+
+        # print("Print 180g Board:")
+        # rotated_board = np.rot90(self.board, k=180 // 90)
+        # # TODO print(" ".join(map(str, list(range(0, len(self.board) + 2)))))
+        # for row in rotated_board:
+        #     print(" ".join(row))
+        # print("\n")
+
+    def rotate_move(self, move, rotation_angle):
+        row, col = move
+        if rotation_angle == 90:
+            return (col, self.board.shape[0] - 1 - row)
+        elif rotation_angle == 180:
+            return (self.board.shape[0] - 1 - row, self.board.shape[1] - 1 - col)
+        elif rotation_angle == 270:
+            return (self.board.shape[1] - 1 - col, row)
+        else:
+            return move  # No rotation
+
     # Get current game state as flattened vector
     def get_game_state(self):
         return np.append(self.board[1::2, ::2] != ' ', self.board[::2, 1::2] != ' ').flatten().astype(int)
+    
+    def get_game_state_with_board(self, board, index):
+        return np.append(np.append(board[1::2, ::2] != ' ', board[::2, 1::2] != ' ').flatten().astype(int), index)
+
+    def get_canonical_state_and_rotation(self):
+        # Generate all rotated versions of the board
+        rotations = [self.board]
+        for i in range(1, 4):
+            rotations.append(np.rot90(self.board, k=i))
+        
+        # Convert each rotation to bytes and find the smallest
+        byte_representations = [rot.tobytes() for rot in rotations]
+        min_index = byte_representations.index(min(byte_representations))
+        
+        # Return the canonical state and the rotation index that produces it
+        canonical_bytes = byte_representations[min_index]
+        return canonical_bytes, min_index
+    
+    def rotate_move(self, move, rotation):
+        row, col = move
+        n = self.board.shape[0]  # assuming a square board for simplicity
+        if rotation == 1:  # 90 degrees
+            return (col, n - 1 - row)
+        elif rotation == 2:  # 180 degrees
+            return (n - 1 - row, n - 1 - col)
+        elif rotation == 3:  # 270 degrees
+            return (n - 1 - col, row)
+        return move  # 0 degrees (no rotation)
+    
+    def inverse_rotate_move(self, move, rotation):
+        row, col = move
+        n = self.board.shape[0]  # assuming a square board for simplicity
+        if rotation == 1:  # 90 degrees inverse is 270 degrees
+            return (n - 1 - col, row)
+        elif rotation == 2:  # 180 degrees inverse is still 180 degrees
+            return (n - 1 - row, n - 1 - col)
+        elif rotation == 3:  # 270 degrees inverse is 90 degrees
+            return (col, n - 1 - row)
+        return move  # 0 degrees (no rotation)
+
+    def get_canonical_moves(self, canonical_rotation):
+        return [self.rotate_move(move, canonical_rotation) for move in self.available_moves]
         
     # Check if edge is empty
     def is_edge_empty(self, row, col):
