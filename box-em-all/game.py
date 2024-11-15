@@ -7,40 +7,19 @@ class DotsAndBoxes:
         self.rows = rows
         self.cols = cols
         self.total_boxes = self.rows * self.cols
-        self.empty_board = np.full(shape=(2 * self.rows + 1, 2 * self.cols + 1), fill_value=" ")
-        self.empty_board[::2, ::2] = "•"
+        self.board = np.full(shape=(2 * self.rows + 1, 2 * self.cols + 1), fill_value=" ")
+        self.board[::2, ::2] = "•"
+        self.available_moves = self.get_available_moves()
         # Initialize players
         self.player_1 = player_1
         self.player_2 = player_2
-        # self.current_player = self.player_1
+        self.current_player = random.choice((self.player_1, self.player_2))
         # Initialize score
         # self.scores = {self.player_1.player_number: self.player_1.player_score, self.player_2.player_number: self.player_2.player_score}
-        # Reset game
-        self.reset()
-        
-    def reset(self):
-        # Reset board
-        self.board = np.copy(self.empty_board)
-        # Reset available moves
-        self.available_moves = self.get_available_moves()
-        # Reset player
-        self.current_player = random.choice((self.player_1, self.player_2))
-        self.player_1.reset()
-        self.player_2.reset()
-
-    # Prints the board     
-    def print_board(self):
-        print("\n")
-        print("Current Board:")
-        # TODO print(" ".join(map(str, list(range(0, len(self.board) + 2)))))
-        for row in self.board:
-            print(" ".join(row))
-        print("\n")
-       
-    # Get current game state as flattened vector
-    def get_game_state(self):
-        return np.append(self.board[1::2, ::2] != ' ', self.board[::2, 1::2] != ' ').flatten().astype(int)
-        
+    
+    """
+    Edges
+    """    
     # Check if edge is empty
     def is_edge_empty(self, row, col):
         return self.board[row, col] == " "
@@ -63,7 +42,43 @@ class DotsAndBoxes:
     # Remove edge         
     def remove_edge(self, row, col):
         self.board[row, col] = " "
+        
+    """
+    Boxes
+    """
+    # Check for any boxes that this edge might have completed
+    def check_boxes(self, row, col, edges=4, sim=None):
+        boxes = []
+        if sim:
+           self.draw_edge(row, col)  # Draw edge (for simulation)
+        if self.is_horizontal_edge(row, col):  # Horizontal edge
+            for dx in [-1, 1]:
+                if 0 <= row + dx < self.board.shape[0] and self.count_box_edges(row + dx, col) == edges:
+                    boxes.append((row + dx, col))
+        elif self.is_vertical_edge(row, col):  # Vertical edge
+            for dy in [-1, 1]:
+                if 0 <= col + dy < self.board.shape[1] and self.count_box_edges(row, col + dy) == edges:
+                    boxes.append((row, col + dy))
+        if sim:
+            self.remove_edge(row, col)  # Remove edge (for simulation)       
+        return boxes
+    
+    def count_box_edges(self, x, y):
+        edges = 0
+        # Check if all edges of the box centered at (x, y) are filled
+        if not self.is_edge_empty(x - 1, y):
+            edges += 1
+        if not self.is_edge_empty(x + 1, y):
+            edges += 1
+        if not self.is_edge_empty(x, y - 1):
+            edges += 1
+        if not self.is_edge_empty(x, y + 1):
+            edges += 1   
+        return edges
 
+    """
+    Move
+    """
     # Returns a list of available moves
     def get_available_moves(self):
         moves = []
@@ -101,52 +116,22 @@ class DotsAndBoxes:
         else:
             print("Invalid move. Try again.")
             return True  # Invalid move -> another move
-    
-    # Check for any boxes that this edge might have completed
-    def check_boxes(self, row, col, edges=4, sim=None):
-        boxes = []
-        if sim:
-           self.draw_edge(row, col)  # Draw edge (for simulation)
-        if self.is_horizontal_edge(row, col):  # Horizontal edge
-            for dx in [-1, 1]:
-                if 0 <= row + dx < self.board.shape[0] and self.count_box_edges(row + dx, col) == edges:
-                    boxes.append((row + dx, col))
-        elif self.is_vertical_edge(row, col):  # Vertical edge
-            for dy in [-1, 1]:
-                if 0 <= col + dy < self.board.shape[1] and self.count_box_edges(row, col + dy) == edges:
-                    boxes.append((row, col + dy))
-        if sim:
-            self.remove_edge(row, col)  # Remove edge (for simulation)
-        return boxes
-    
-    def count_box_edges(self, x, y):
-        edges = 0
-        # Check if all edges of the box centered at (x, y) are filled
-        if not self.is_edge_empty(x - 1, y):
-            edges += 1
-        if not self.is_edge_empty(x + 1, y):
-            edges += 1
-        if not self.is_edge_empty(x, y - 1):
-            edges += 1
-        if not self.is_edge_empty(x, y + 1):
-            edges += 1
-            
-        return edges
 
-    # Check if a box is completed
-    # def check_boxes(self):
-    #     completed_box = False
-    #     for row in range(1, self.board.shape[0], 2):
-    #         for col in range(1, self.board.shape[1], 2):
-    #             if (
-    #                 self.board[row - 1, col] == "-" and self.board[row + 1, col] == "-" and
-    #                 self.board[row, col - 1] == "|" and self.board[row, col + 1] == "|"
-    #             ):
-    #                 if self.board[row, col] == " ":  # Only mark the box if it hasn't been claimed
-    #                     self.board[row, col] = str(self.current_player.player_number)  # Mark the box with the player's number
-    #                     self.current_player.player_score += 1
-    #                     completed_box = True
-    #     return completed_box
+    """
+    Game
+    """  
+    # Prints the board
+    def print_board(self):
+        print("\n")
+        print("Current Board:")
+        # TODO print(" ".join(map(str, list(range(0, len(self.board) + 2)))))
+        for row in self.board:
+            print(" ".join(row))
+        print("\n")
+    
+    # Get current game state as flattened vector
+    def get_game_state(self):
+        return np.append(self.board[1::2, ::2] != ' ', self.board[::2, 1::2] != ' ').flatten().astype(int)
 
     # Switch player
     def switch_player(self):

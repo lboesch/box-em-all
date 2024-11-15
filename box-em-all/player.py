@@ -6,9 +6,6 @@ class Player(ABC):
     def __init__(self, player_number: int, player_name: str):
         self.player_number = player_number
         self.player_name = player_name
-        self.reset()
-        
-    def reset(self):
         self.player_score = 0  # TODO move to game
         
     @abstractmethod
@@ -60,20 +57,16 @@ class ComputerQLearning(Player):
     def __init__(self, player_number, player_name, model):
         super().__init__(player_number, player_name)
         self.model = model
-        self.reset()
-    
-    def reset(self):
-        super().reset()
         self.total_reward = 0
 
     def play_turn(self, game):
-        old_state = np.copy(game.board)            
+        old_state = np.copy(game.get_game_state())            
                                   
         # Epsilon-greedy action selection
         if random.uniform(0, 1) < self.model.epsilon:
             action = random.choice(game.available_moves)
         else:
-            action = max(game.available_moves, key=lambda move: self.model.q_table.get((game.board.tobytes(), move), 0))          
+            action = max(game.available_moves, key=lambda move: self.model.q_table.get((game.get_game_state().tobytes(), move), 0))          
         
         row, col = action
         
@@ -103,7 +96,7 @@ class ComputerQLearning(Player):
         self.total_reward += reward
 
         # Update Q-table
-        self.model.update_q_table(game, old_state, action, reward)
+        self.model.update_q_table(game, old_state, action, reward, another_move)
 
         return another_move
     
@@ -114,7 +107,7 @@ class ComputerQTable(Player):
         self.model = model
 
     def play_turn(self, game):
-        action = max(game.available_moves, key=lambda move: self.model.q_table.get((game.board.tobytes(), move), 0))
+        action = max(game.available_moves, key=lambda move: self.model.q_table.get((game.get_game_state().tobytes(), move), 0))
         row, col = action    
         another_move = game.make_move(row, col)
         return another_move
