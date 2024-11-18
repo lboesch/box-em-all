@@ -13,7 +13,7 @@ class DotsAndBoxes:
         # Initialize players
         self.player_1 = player_1
         self.player_2 = player_2
-        self.current_player = random.choice((self.player_1, self.player_2))
+        self.current_player = self.player_2
         # Initialize score
         # self.scores = {self.player_1.player_number: self.player_1.player_score, self.player_2.player_number: self.player_2.player_score}
     
@@ -75,6 +75,25 @@ class DotsAndBoxes:
         if not self.is_edge_empty(x, y + 1):
             edges += 1   
         return edges
+    
+    def count_boxes_with_n_edges(self):
+        count0 = 0
+        count1 = 0
+        count2 = 0
+        count3 = 0
+        # Loop over all potential box centers on the board
+        for row in range(1, self.board.shape[0], 2):  # Centers of boxes are on odd rows
+            for col in range(1, self.board.shape[1], 2):  # Centers of boxes are on odd columns
+                edges = self.count_box_edges(row, col)
+                if edges == 0:
+                    count0 += 1
+                elif edges == 1:
+                    count1 += 1
+                elif edges == 2:
+                    count2 += 1
+                elif edges == 3:
+                    count3 += 1
+        return count0, count1, count2, count3
 
     """
     Move

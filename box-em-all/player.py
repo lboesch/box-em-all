@@ -66,33 +66,21 @@ class ComputerQLearning(Player):
         if random.uniform(0, 1) < self.model.epsilon:
             action = random.choice(game.available_moves)
         else:
-            action = max(game.available_moves, key=lambda move: self.model.q_table.get((game.get_game_state().tobytes(), move), 0))          
+            action = max(game.available_moves, key=lambda x: self.model.q_table.get((game.get_game_state().tobytes(), x), 0))          
         
         row, col = action
         
         another_move = game.make_move(row, col)
-        boxes_3_edges = game.check_boxes(row, col, edges=3)
+        count0, count1, boxes_2_edges, boxes_3_edges = game.count_boxes_with_n_edges()
         boxes_4_edges = game.check_boxes(row, col, edges=4)
 
         # Calculate reward
-        reward = 0
+        # reward = 1 if another_move else -1 if len(boxes_3_edges) > 0 else 0
+        reward =  0
         if another_move:
-            # Box completed 
-            reward += len(boxes_4_edges) + 0.2 * len(boxes_3_edges)
+            reward += len(boxes_4_edges) + 0.5 * boxes_3_edges
         else:
-            # Giving advantage to opponent
-            if len(boxes_3_edges) > 0:
-                reward -= len(boxes_3_edges)
-            # Drawing edge without completing a box
-            else:
-                reward -= 0.1
-        if len(game.available_moves) == 0:
-            # Winning a game
-            if self.player_score > game.player_1.player_score:
-                reward += 5
-            # Loosing a game
-            elif self.player_score < game.player_1.player_score:
-                reward -= 5
+            reward -= 4 * boxes_3_edges
         self.total_reward += reward
 
         # Update Q-table
@@ -107,7 +95,7 @@ class ComputerQTable(Player):
         self.model = model
 
     def play_turn(self, game):
-        action = max(game.available_moves, key=lambda move: self.model.q_table.get((game.get_game_state().tobytes(), move), 0))
+        action = max(game.available_moves, key=lambda x: self.model.q_table.get((game.get_game_state().tobytes(), x), 0))
         row, col = action    
         another_move = game.make_move(row, col)
         return another_move

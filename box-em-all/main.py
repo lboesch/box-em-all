@@ -14,16 +14,16 @@ def main():
     debug = False
     is_human = False
     do_train = True
-    use_wandb = False
+    use_wandb = True
     extend_table = False
 
-    board_size = 2
-    epochs = 100000
-    verification_epochs = 100
+    board_size = 3
+    epochs = 2000000
+    verification_epochs = 10
 
     alpha = 0.1
-    gamma = 0.4
-    epsilon = 0.1
+    gamma = 0.2
+    epsilon = 0.3
 
     timestsamp = datetime.now().strftime("%Y%m%d%H%M%S")
     model_name_load = 'q_table_2_2'
@@ -45,7 +45,7 @@ def main():
                 "epsilon": epsilon,
                 "epochs": epochs,
                 "verification_epochs": verification_epochs,
-                "game-state": "with-both-players",
+                "game-state": "new cost function and always player 2 starts",
             },
             tags=["q-learning", "dots-and-boxes"]
         )
@@ -77,15 +77,16 @@ def main():
         # Training
         pbar.set_description(f"Training Epoch {epoch}")
         if do_train:
+            #player_1 = player.ComputerGreedy(1, 'Greedy1')
             player_1 = player.ComputerRandom(1, 'Random1')
             player_2 = player.ComputerQLearning(2, 'QLearning2', q_learning)
             game = DotsAndBoxes(rows=board_size, cols=board_size, player_1=player_1, player_2=player_2)
             game.play()
     
         # Verification
-        verification_player_1 = player.ComputerGreedy(1, 'Greedy1')
-        verification_player_2 = player.ComputerQTable(2, 'QTable2', q_learning)
         for _ in range(verification_epochs):
+            verification_player_1 = player.ComputerGreedy(1, 'Greedy1')
+            verification_player_2 = player.ComputerQTable(2, 'QTable2', q_learning)
             verification_game = DotsAndBoxes(rows=board_size, cols=board_size, player_1=verification_player_1, player_2=verification_player_2)
             verification_game.play()
             # Update player score
@@ -97,7 +98,7 @@ def main():
                 score['Tie'] += 1
         
         # Verification results
-        if debug or ((epoch % 1000) == 0): 
+        if debug or ((epoch % 1000) == 0) and not use_wandb: 
             # Print final score accross all verification epochs
             print("--------------------------------------------------------------------------------")
             print(f"Final Score in epoch {epoch}: {score}")
