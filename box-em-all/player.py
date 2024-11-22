@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod
 import numpy as np
 import random
+from mcts import MCTS
+from mctsnode import MCTSNode
+from game import DotsAndBoxes
 
 class Player(ABC):
     def __init__(self, player_number: int, player_name: str):
@@ -99,3 +102,27 @@ class ComputerQTable(Player):
         row, col = action    
         another_move = game.make_move(row, col)
         return another_move
+
+class ComputerMCTS(Player):
+    def __init__(self, player_number, player_name, num_simulations=100):
+        super().__init__(player_number, player_name)
+        self.mcts = MCTS(num_simulations)
+
+    def play_turn(self, game):
+        # Create the root node with the current game state
+        print(f"{self.player_name}: search move for board:")
+        game.print_board()
+        root_state = DotsAndBoxes(rows=game.rows, cols=game.cols, player_1=game.player_1, player_2=game.player_2, board=np.copy(game.board))
+        root_node = MCTSNode(root_state)
+
+        # Run MCTS to get the best action
+        best_node = self.mcts.run_mcts(root_node)
+        best_move = best_node.action
+
+        # Make the selected move
+        move = game.make_move(*best_move)
+
+        print(f"{self.player_name} selected move: {best_move}")
+        print(f"{self.player_name} board after move is:")
+        game.print_board()
+        return move

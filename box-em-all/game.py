@@ -2,20 +2,23 @@ import numpy as np
 import random
 
 class DotsAndBoxes:
-    def __init__(self, rows, cols, player_1, player_2):
+    def __init__(self, rows, cols, player_1, player_2, board=None):
         # Initialize board
         self.rows = rows
         self.cols = cols
         self.total_boxes = self.rows * self.cols
-        self.board = np.full(shape=(2 * self.rows + 1, 2 * self.cols + 1), fill_value=" ")
-        self.board[::2, ::2] = "•"
+        if board is not None:
+            self.board = board
+        else:
+            self.board = np.full(shape=(2 * self.rows + 1, 2 * self.cols + 1), fill_value=" ")
+            self.board[::2, ::2] = "•"
         self.available_moves = self.get_available_moves()
         # Initialize players
         self.player_1 = player_1
         self.player_2 = player_2
-        self.current_player = self.player_2
+        self.current_player = self.player_1 #self.player_2
         # Initialize score
-        # self.scores = {self.player_1.player_number: self.player_1.player_score, self.player_2.player_number: self.player_2.player_score}
+        self.scores = {self.player_1.player_number: self.player_1.player_score, self.player_2.player_number: self.player_2.player_score}
     
     """
     Edges
@@ -129,6 +132,7 @@ class DotsAndBoxes:
                 for completed_box in completed_boxes:
                     self.board[completed_box] = str(self.current_player.player_number)
                     self.current_player.player_score += 1
+                    self.scores[self.current_player.player_number] += 1
                 return True  # Box completed -> another move
             else:
                 return False  # Box not completed -> switch player
