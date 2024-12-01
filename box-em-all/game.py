@@ -3,11 +3,13 @@ import random
 
 class DotsAndBoxes:
     def __init__(self, rows, cols, player_1, player_2):
+        self.games_played = 0
         # Initialize board
         self.rows = rows
         self.cols = cols
         self.total_boxes = self.rows * self.cols
-        self.board_shape = (2 * self.rows + 1, 2 * self.cols + 1)
+        self.empty_board = self.__init_board()
+        self.all_actions = self.__init_actions()
         # Initialize players
         self.player_1 = player_1
         self.player_2 = player_2
@@ -15,8 +17,8 @@ class DotsAndBoxes:
         
     def reset(self):
         # Reset board
-        self.board = self.__init_board()
-        self.actions = self.__init_actions()
+        self.board = self.empty_board.copy()
+        self.available_actions = self.all_actions.copy()
         # Reset players
         self.player_1.reset()
         self.player_2.reset()
@@ -90,38 +92,36 @@ class DotsAndBoxes:
     """
     # Initialize actions
     def __init_actions(self):
-        actions = {}
+        actions = []
         # Horizontal edges
-        for row in range(0, self.board.shape[0], 2):
-            for col in range(1, self.board.shape[1], 2):
-                if self.is_edge_empty(row, col):
-                    actions[(row, col)] = True
+        for row in range(0, self.empty_board.shape[0], 2):
+            for col in range(1, self.empty_board.shape[1], 2):
+                actions.append((row, col))
         # Vertical edges
-        for row in range(1, self.board.shape[0], 2):
-            for col in range(0, self.board.shape[1], 2):
-                if self.is_edge_empty(row, col):
-                    actions[(row, col)] = True
+        for row in range(1, self.empty_board.shape[0], 2):
+            for col in range(0, self.empty_board.shape[1], 2):
+                actions.append((row, col))
         return actions
     
     # Return a list of available actions
     def get_available_actions(self):
-        return [key for key, value in self.actions.items() if value == True]
+        return self.available_actions
 
     # Check if a action is valid
     def is_valid_action(self, row, col):
-        return self.actions[(row, col)]
+        return (row, col) in self.available_actions
     
     def get_action_by_idx(self, idx):
-        return list(self.actions)[idx]
+        return self.all_actions[idx]
         
     def get_idx_by_action(self, row, col):
-        return list(self.actions).index((row, col))
+        return self.all_actions.index((row, col))
 
     # Make a move
     # TODO rename to step
     def make_move(self, row, col):
         if self.is_valid_action(row, col):
-            self.actions[(row, col)] = False  # Remove action from available actions
+            self.available_actions.remove((row, col))  # Remove action from available actions
             # Draw edge
             self.draw_edge(row, col)
             # Check for completed boxes
@@ -142,7 +142,7 @@ class DotsAndBoxes:
     """
     # Initialize board
     def __init_board(self):
-        board = np.full(shape=self.board_shape, fill_value=" ")
+        board = np.full(shape=(2 * self.rows + 1, 2 * self.cols + 1), fill_value=" ")
         board[::2, ::2] = "•"
         return board
     
@@ -174,6 +174,7 @@ class DotsAndBoxes:
 
     # Play game
     def play(self, print_board=None):
+        self.games_played += 1
         # Turn based game until game over
         while True:
             if print_board:
@@ -187,7 +188,8 @@ class DotsAndBoxes:
             another_move = self.current_player.play_turn(self)
             # Exit game and let the opponent player see the final action
             if self.is_game_over():
-                self.opponent_player.review_game(self)
+                self.switch_player()
+                self.current_player.review_game(self)
                 break
             # Switch player
             if not another_move:

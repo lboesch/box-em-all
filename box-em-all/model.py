@@ -28,27 +28,17 @@ class Model:
 Q-learning
 """
 class QLearning(Model):
-    def __init__(self, alpha, gamma, epsilon, q_table={}):
-        # Hyperparameters
-        self.alpha = alpha  # Learning rate TODO move to agent?
-        self.gamma = gamma  # Discount factor TODO move to agent?
-        self.epsilon = epsilon  # Exploration rate TODO move to agent?
+    def __init__(self, q_table={}):
         # Initialize Q-table
         self.q_table = q_table
         
-    # Update Q-table
-    def update(self, game, old_state, action, reward, another_move):
-        is_future_move = 1 if another_move else -1 # TODO necessary?
-        # Q-learning algorithm
-        old_q_value = self.q_table.get((old_state.tobytes(), action), 0)
-        max_future_q = max([self.q_table.get((game.get_game_state().tobytes(), action), 0) for action in game.get_available_actions()], default=0)
-        # Formula: Q(s,a) = Q(s,a) + α * (r + γ * max(Q(s',a')) - Q(s,a))
-        new_q_value = old_q_value + self.alpha * (reward + is_future_move * self.gamma * max_future_q - old_q_value)
-        self.q_table[(old_state.tobytes(), action)] = new_q_value
+    # Get Q-value
+    def get_q_value(self, state, action):
+        return self.q_table.get((state.tobytes(), action), 0)
     
-    # Predict next action
-    def predict(self, game):
-        return max(game.get_available_actions(), key=lambda action: self.q_table.get((game.get_game_state().tobytes(), action), 0))
+    # Update Q-value    
+    def update_q_value(self, state, action, q_value):
+        self.q_table[(state.tobytes(), action)] = q_value
     
 """
 DQN (Deep Q-network)

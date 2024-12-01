@@ -30,11 +30,13 @@ def q_learning():
     board_size = 2
     epochs = 100000
     verification_epochs = 100
-    alpha = 0.1
-    gamma = 0.4
-    epsilon = 0.1
-    epsilon_decay = 0.1 # TODO
-    epsilon_min = 0.1 # TODO
+    ###
+    alpha = 0.1  # TODO
+    gamma = 0.9  # TODO
+    epsilon = 1.0  # TODO
+    epsilon_decay = 0.995  # TODO
+    epsilon_min = 0.1  # TODO
+    ###
     model_name_load = 'q_table_2_2'
     model_name_save = 'q_learning_' + str(board_size) + '_' + timestsamp
 
@@ -58,24 +60,24 @@ def q_learning():
     
     # Model
     if do_train:
-        q_learning = model.QLearning(alpha=alpha, gamma=gamma, epsilon=epsilon, q_table={} if not extend_q_table else model.load(model_name_load).q_table)
+        q_learning = model.QLearning(q_table={} if not extend_q_table else model.load(model_name_load).q_table)
     else:
         q_learning = model.QLearning.load(model_name_load)
     
-    # Human Player   
+    # Human Player
     if is_human:
         player_1 = player.Human(1, 'Human1')
-        player_2 = player.ComputerQTable(2, 'QTable2', q_learning)
+        player_2 = player.ComputerQTable(2, 'QTable2', model=q_learning)
         game = DotsAndBoxes(rows=board_size, cols=board_size, player_1=player_1, player_2=player_2)
         game.play(print_board=is_human)
         return
     
     # Training & Verification
     player_1 = player.ComputerRandom(1, 'Random1')
-    player_2 = player.ComputerQLearning(2, 'QLearning2', q_learning)
+    player_2 = player.ComputerQLearning(2, 'QLearning2', model=q_learning, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min)
     game = DotsAndBoxes(rows=board_size, cols=board_size, player_1=player_1, player_2=player_2)
     verification_player_1 = player.ComputerGreedy(1, 'Greedy1')
-    verification_player_2 = player.ComputerQTable(2, 'QTable2', q_learning)
+    verification_player_2 = player.ComputerQTable(2, 'QTable2', model=q_learning)
     verification_game = DotsAndBoxes(rows=board_size, cols=board_size, player_1=verification_player_1, player_2=verification_player_2)
     # rewards = {}
     for epoch in (pbar := tqdm(range(epochs if do_train else 1))):
@@ -84,9 +86,11 @@ def q_learning():
         if do_train:
             game.reset()
             game.play()
+            if (epoch + 1) % 100 == 0:
+                player_2.update_epsilon()
     
         # Verification
-        if debug or (epoch % 1000 == 0): 
+        if debug or ((epoch + 1) % 1000 == 0): 
             score = {'P1': 0, 'P2': 0, 'Tie': 0}
             for _ in range(verification_epochs):
                 verification_game.reset()
@@ -135,9 +139,11 @@ def dqn():
     epochs = 10000
     verification_epochs = 100
     ###
-    alpha = 0.1
-    gamma = 0.4
-    epsilon = 0.1
+    alpha = 0.1  # TODO
+    gamma = 0.4  # TODO
+    epsilon = 0.1  # TODO
+    epsilon_decay = 0.995  # TODO
+    epsilon_min = 0.1  # TODO
     ###
     model_name_load = 'dqn_2_2'
     model_name_save = 'dqn' + str(board_size) + '_' + timestsamp
@@ -164,7 +170,7 @@ def dqn():
     
     # Game
     player_1 = player.ComputerRandom(1, 'Random1')
-    player_2 = player.ComputerDQN(2, 'DQN2', policy_net)
+    player_2 = player.ComputerDQN(2, 'DQN2', model=policy_net, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min)
     game = DotsAndBoxes(rows=board_size, cols=board_size, player_1=player_1, player_2=player_2)
     
     # Training
@@ -172,8 +178,8 @@ def dqn():
         pbar.set_description(f"Training Epoch {epoch}")
         game.reset()
         game.play()
-        if epoch % 100 == 0:
-            player_2.replay(32)
+        if (epoch + 1) % 100 == 0:
+            player_2.optimize(32)
 
     # https://pytorch.org/tutorials/beginner/saving_loading_models.html
     # https://github.com/Floni/AI_dotsandboxes/blob/master/dotsandboxesplayer.py

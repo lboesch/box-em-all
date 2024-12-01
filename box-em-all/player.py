@@ -79,32 +79,58 @@ class ComputerGreedy(Player):
         return game.make_move(row, col)
 
 """
+Q-learning
+"""
+class QLearning(Player):
+    # Predict next action
+    def next_action(self, game):
+        actions = game.get_available_actions()
+        random.shuffle(actions)
+        return max(actions, key=lambda action: self.model.get_q_value(game.get_game_state(), action))  # TODO what if multiple max?
+
+"""
 Q-learning Agent
 """
-class ComputerQLearning(Player):
-    def __init__(self, player_number, player_name, model):
+class ComputerQLearning(QLearning):
+    def __init__(self, player_number, player_name, model, alpha, gamma, epsilon, epsilon_decay, epsilon_min):
         super().__init__(player_number, player_name)
         self.model = model
+        # Hyperparameters
+        self.alpha = alpha  # Learning rate
+        self.gamma = gamma  # Discount factor
+        self.epsilon = epsilon # Exploration rate
+        self.epsilon_decay = epsilon_decay
+        self.epsilon_min = epsilon_min
         
     def reset(self):
         super().reset()
         self.total_reward = 0
+        self.state = None
+        self.action = None
         
     def review_game(self, game):
-        pass  # TODO
+        reward = 0
+        # Winning a game
+        if self.player_score > game.opponent_player.player_score:
+            reward += 1
+        # Loosing a game
+        elif self.player_score < game.opponent_player.player_score:
+            reward -= 1
+            
+        self.update_q_table(self.state, self.action, reward, game)
 
     def play_turn(self, game):
-        old_state = game.get_game_state()  # np.copy(game.get_game_state())
+        self.state = game.get_game_state()  # np.copy(game.get_game_state())
                                   
         # Epsilon-greedy action selection
-        if random.uniform(0, 1) < self.model.epsilon:
+        if random.uniform(0, 1) < self.epsilon:
             # Exploration
-            action = random.choice(game.get_available_actions())
+            self.action = random.choice(game.get_available_actions())
         else:
             # Exploitation
-            action = self.model.predict(game)
+            self.action = self.next_action(game)
         
-        row, col = action
+        row, col = self.action
         
         another_move = game.make_move(row, col)
         boxes_3_edges = game.check_boxes(row, col, edges=3)
@@ -114,32 +140,47 @@ class ComputerQLearning(Player):
         reward = 0
         if another_move:
             # Box completed 
-            reward += len(boxes_4_edges) + 0.2 * len(boxes_3_edges)
+            # reward += 0.5 * len(boxes_4_edges) + 0.1 * len(boxes_3_edges)
+            reward += 0.1 * len(boxes_4_edges)
         else:
             # Giving advantage to opponent
             if len(boxes_3_edges) > 0:
-                reward -= len(boxes_3_edges)
+                reward -= 0.1 * len(boxes_3_edges)
             # Drawing edge without completing a box
-            else:
-                reward -= 0.1
+            # else:
+            #     reward -= 0.1
         if game.is_game_over():  # TODO currently not possible to get a reward if the opponent has finished the game (MDP --> next state after opponents action?)
             # Winning a game
             if self.player_score > game.opponent_player.player_score:
-                reward += 5
+                reward += 1
             # Loosing a game
-            elif self.player_score <= game.opponent_player.player_score:
-                reward -= 5
+            elif self.player_score < game.opponent_player.player_score:
+                reward -= 1
+                
         self.total_reward += reward
 
         # Update Q-table
-        self.model.update(game, old_state, action, reward, another_move)  # TODO deque?
-
+        self.update_q_table(self.state, self.action, reward, game)  # TODO deque?
+        
         return another_move
+    
+    # Update epsilon (decrease exploration)
+    def update_epsilon(self):
+        if self.epsilon > self.epsilon_min:
+            self.epsilon *= self.epsilon_decay
+    
+    # Update Q-table (Q-learning algorithm)
+    def update_q_table(self, state, action, reward, game):
+        old_q_value = self.model.get_q_value(state, action)
+        max_future_q = max([self.model.get_q_value(game.get_game_state(), action) for action in game.get_available_actions()], default=0)
+        # Formula: Q(s,a) = Q(s,a) + α * (r + γ * max(Q(s',a')) - Q(s,a))
+        new_q_value = old_q_value + self.alpha * (reward + self.gamma * max_future_q - old_q_value)
+        self.model.update_q_value(state, action, new_q_value)
     
 """
 Q-table Player
 """
-class ComputerQTable(Player):
+class ComputerQTable(QLearning):
     def __init__(self, player_number, player_name, model):
         super().__init__(player_number, player_name)
         self.model = model
@@ -148,7 +189,7 @@ class ComputerQTable(Player):
         super().reset()
 
     def play_turn(self, game):
-        action = self.model.predict(game)
+        action = self.next_action(game)
         row, col = action    
         another_move = game.make_move(row, col)
         return another_move
@@ -157,19 +198,18 @@ class ComputerQTable(Player):
 DQN Agent
 """
 class ComputerDQN(Player):
-    def __init__(self, player_number, player_name, model):
+    def __init__(self, player_number, player_name, model, alpha, gamma, epsilon, epsilon_decay, epsilon_min):
         super().__init__(player_number, player_name)
-        self.memory = deque(maxlen=2000)
-        #
-        self.gamma = 0.99
-        self.epsilon = 1.0
-        self.epsilon_decay = 0.995
-        self.epsilon_min = 0.01
-        self.learning_rate = 0.001
         self.model = model
-        #
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=self.alpha)
         self.loss_funct = nn.MSELoss()
+        self.memory = deque(maxlen=2000)
+        # Hyperparameters
+        self.alpha = alpha  # Learning rate
+        self.gamma = gamma  # Discount factor
+        self.epsilon = epsilon # Exploration rate
+        self.epsilon_decay = epsilon_decay
+        self.epsilon_min = epsilon_min
         
     def reset(self):
         super().reset()
@@ -195,7 +235,7 @@ class ComputerDQN(Player):
         return game.get_action_by_idx(torch.argmax(q_values).item())  # TODO transform action to scalar value
     
     # Replay with previous experience to train model
-    def replay(self, batch_size):
+    def optimize(self, batch_size):
         if len(self.memory) < batch_size:
             return
         minibatch = random.sample(self.memory, batch_size)
