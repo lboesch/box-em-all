@@ -38,8 +38,8 @@ class HumanPlayer(Player):
     def play_turn(self, game):
         # Let the human player choose an action using input
         try:
-            row, col = map(int, input("Enter row and column for your action (e.g., 0 1): ").split())
-            another_move, _ = game.make_move(row, col)
+            action = map(int, input("Enter row and column for your action (e.g., 0 1): "))
+            another_move, _ = game.make_move(*action)
             return another_move
         except ValueError:
             print("Invalid input. Enter two integers separated by a space.")
@@ -55,8 +55,7 @@ class RandomPlayer(Player):
     def play_turn(self, game):
         # Pick a random available action
         action = random.choice(game.get_available_actions())
-        row, col = action
-        another_move, _ = game.make_move(row, col)
+        another_move, _ = game.make_move(*action)
         return another_move
         
 """
@@ -70,25 +69,26 @@ class GreedyPlayer(Player):
         action = ()
         # Prioritize actions that complete a box
         for available_action in game.get_available_actions():
-            row, col = available_action
-            if game.is_valid_action(row, col):  # TODO remove?
-                boxes = game.check_boxes(row, col, sim=True)
-                if len(boxes[4]) > 0:
-                    action = (row, col)
-                    break
+            boxes = game.check_boxes(*available_action, sim=True)
+            if len(boxes[4]) > 0:
+                action = available_action
+                break
 
         # If no box-completing actions, pick a random available action
         if not action:
             action = random.choice(game.get_available_actions())
             
-        row, col = action
-        another_move, _ = game.make_move(row, col)
+        another_move, _ = game.make_move(*action)
         return another_move
 
 # ====================================================================================================
 # Q-learning
 # ====================================================================================================
 class QLearning(Player):
+    def __init__(self, player_name, model):
+        super().__init__(player_name)
+        self.model = model
+    
     # Predict next action
     def next_action(self, game):
         return max(game.get_random_available_actions(), key=lambda action: self.model.get_q_value(game.get_game_state(), action))  # TODO what if multiple max?
@@ -98,8 +98,7 @@ Q-learning Agent
 """
 class QAgent(QLearning):
     def __init__(self, player_name, model, alpha, gamma, epsilon, epsilon_decay, epsilon_min):
-        super().__init__(player_name)
-        self.model = model
+        super().__init__(player_name, model)
         # Hyperparameters
         self.alpha = alpha  # Learning rate
         self.gamma = gamma  # Discount factor
@@ -109,43 +108,35 @@ class QAgent(QLearning):
         
     def reset(self):
         super().reset()
-        self.total_reward = 0
         self.state = None
         self.action = None
+        self.boxes = None
+        self.another_move = None
+        self.reward = 0
+        self.total_reward = 0
 
     def play_turn(self, game):
-        self.state = game.get_game_state()
-                                  
-        # Epsilon-greedy action selection
-        if random.uniform(0, 1) < self.epsilon:
-            # Exploration
-            self.action = random.choice(game.get_available_actions())
+        if self.state is not None:
+            self.reward = game.calc_reward(self.boxes, self.another_move)
+            self.total_reward += self.reward
+            # Update Q-table
+            self.update_q_table(self.state, self.action, self.reward, game)  # TODO deque?
+        if not game.is_game_over():
+            self.state = game.get_game_state()                 
+            # Epsilon-greedy action selection
+            if random.uniform(0, 1) < self.epsilon:
+                # Exploration
+                self.action = random.choice(game.get_available_actions())
+            else:
+                # Exploitation
+                self.action = self.next_action(game)
+            self.another_move, self.boxes = game.make_move(*self.action)      
+            return self.another_move
         else:
-            # Exploitation
-            self.action = self.next_action(game)
-        
-        row, col = self.action
-        another_move, boxes = game.make_move(row, col)
-        
-        # Calculate reward
-        reward = game.calc_reward(another_move, boxes)
-        self.total_reward += reward
-
-        # Update Q-table
-        self.update_q_table(self.state, self.action, reward, game)  # TODO deque?
-        
-        return another_move
+            return False
     
     def review_game(self, game):
-        reward = 0
-        # Winning a game
-        if self.player_score > game.opponent_player.player_score:
-            reward += 1
-        # Loosing a game
-        elif self.player_score < game.opponent_player.player_score:
-            reward -= 1
-            
-        self.update_q_table(self.state, self.action, reward, game)
+        self.play_turn(game)
     
     # Update epsilon (decrease exploration)
     def update_epsilon(self):
@@ -165,36 +156,37 @@ Q-learning Player
 """
 class QPlayer(QLearning):
     def __init__(self, player_name, model):
-        super().__init__(player_name)
-        self.model = model
+        super().__init__(player_name, model)
         
     def reset(self):
         super().reset()
 
     def play_turn(self, game):
         action = self.next_action(game)
-        row, col = action
-        another_move, _ = game.make_move(row, col)
+        another_move, _ = game.make_move(*action)
         return another_move
                 
 # ====================================================================================================
 # DQN
 # ====================================================================================================
 class DQN(Player):
+    def __init__(self, player_name, model):
+        super().__init__(player_name)
+        self.model = model
+
     # Predict next action
     def next_action(self, game):
         state = torch.tensor(game.get_game_state(), dtype=torch.float32)
         q_values = self.model(state)
         # return game.get_action_by_idx(torch.argmax(q_values).item())  # TODO transform action to scalar value
-        return max(game.get_random_available_actions, key=lambda action: q_values[game.get_idx_by_action(*action)].item())
+        return max(game.get_random_available_actions(), key=lambda action: q_values[game.get_idx_by_action(*action)].item())
 
 """
 DQN Agent
 """
 class DQNAgent(DQN):
     def __init__(self, player_name, model, alpha, gamma, epsilon, epsilon_decay, epsilon_min):
-        super().__init__(player_name)
-        self.model = model
+        super().__init__(player_name, model)
         self.optimizer = optim.Adam(self.model.parameters(), lr=alpha)
         self.loss_funct = nn.MSELoss()
         self.memory = deque(maxlen=2000)
@@ -207,22 +199,33 @@ class DQNAgent(DQN):
         
     def reset(self):
         super().reset()
+        self.state = None
+        self.action = None
+        self.boxes = None
+        self.another_move = None
+        self.reward = 0
         self.total_reward = 0
         
     def play_turn(self, game):
-        state = game.get_game_state()
-        if np.random.rand() <= self.epsilon:
-            action = random.choice(game.get_available_actions()) # TODO
+        if self.state is not None:
+            self.reward = game.calc_reward(self.boxes, self.another_move)
+            self.total_reward += self.reward
+            # State, Action, Reward, Next State, ?
+            self.memory.append((self.state, game.get_idx_by_action(*self.action), self.reward, game.get_game_state(), True))
+        if not game.is_game_over():
+            self.state = game.get_game_state()
+            if np.random.rand() <= self.epsilon:
+                self.action = random.choice(game.get_available_actions()) # TODO
+            else:
+                self.action = self.next_action(game)
+            self.another_move, self.boxes = game.make_move(*self.action)
+            done = True # TODO
+            return self.another_move
         else:
-            action = self.next_action(game)
-        row, col = action
-        another_move, boxes = game.make_move(row, col)
-        next_state = game.get_game_state()
-        reward = game.calc_reward(another_move, boxes)
-        self.total_reward += reward
-        done = True # TODO
-        self.memory.append((state, game.get_idx_by_action(row, col), reward, next_state, done))
-        return another_move      
+            return False
+    
+    def review_game(self, game):
+        self.play_turn(game)     
     
     # Replay with previous experience to train model
     def optimize(self, batch_size):
@@ -249,14 +252,12 @@ DQN Player
 """
 class DQNPlayer(DQN):
     def __init__(self, player_name, model):
-        super().__init__(player_name)
-        self.model = model
+        super().__init__(player_name, model)
         
     def reset(self):
         super().reset()
         
     def play_turn(self, game):
         action = self.next_action(game)
-        row, col = action
-        another_move, _ = game.make_move(row, col)
+        another_move, _ = game.make_move(*action)
         return another_move    

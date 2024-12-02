@@ -165,16 +165,17 @@ class DotsAndBoxes:
         return np.append(self.board[1::2, ::2] != ' ', self.board[::2, 1::2] != ' ').flatten().astype(int)
     
     # Calculate reward
-    def calc_reward(self, another_move, boxes):
+    def calc_reward(self, boxes, another_move):
         reward = 0
         # Box completed 
-        reward += 1 * len(boxes[4])
+        reward += 0.1 * len(boxes[4])
         if another_move:
             # Chance to complete box with next action
-            reward += 0.1 * len(boxes[3])
+            # reward += 0.1 * len(boxes[3])
+            pass
         else:
             # Giving advantage to opponent
-            reward -= 1 * len(boxes[3])
+            reward -= 0.1 * len(boxes[3])
             # Drawing edge without completing a box
             # reward -= 0.1
         if self.is_game_over():  # TODO currently not possible to get a reward if the opponent has finished the game (MDP --> next state after opponents action?)
