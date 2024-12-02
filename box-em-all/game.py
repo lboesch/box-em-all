@@ -58,18 +58,20 @@ class DotsAndBoxes:
     Boxes
     """
     # Check for any boxes that this edge might have completed
-    def check_boxes(self, row, col, edges=4, sim=None):
-        boxes = []
+    def check_boxes(self, row, col, sim=None):
+        boxes = {1: [], 2: [], 3: [], 4: []}
         if sim:
            self.draw_edge(row, col)  # Draw edge (for simulation)
         if self.is_horizontal_edge(row, col):  # Horizontal edge
             for dx in [-1, 1]:
-                if 0 <= row + dx < self.board.shape[0] and self.count_box_edges(row + dx, col) == edges:
-                    boxes.append((row + dx, col))
+                row_offset = row + dx
+                if 0 <= row_offset < self.board.shape[0]:
+                    boxes[self.count_box_edges(row_offset, col)].append((row_offset, col))
         elif self.is_vertical_edge(row, col):  # Vertical edge
             for dy in [-1, 1]:
-                if 0 <= col + dy < self.board.shape[1] and self.count_box_edges(row, col + dy) == edges:
-                    boxes.append((row, col + dy))
+                col_offset = col + dy
+                if 0 <= col_offset < self.board.shape[1]:
+                    boxes[self.count_box_edges(row, col_offset)].append((row, col_offset))
         if sim:
             self.remove_edge(row, col)  # Remove edge (for simulation)       
         return boxes
@@ -125,17 +127,17 @@ class DotsAndBoxes:
             # Draw edge
             self.draw_edge(row, col)
             # Check for completed boxes
-            completed_boxes = self.check_boxes(row, col)
-            if len(completed_boxes) > 0:
-                for completed_box in completed_boxes:
+            boxes = self.check_boxes(row, col)
+            if len(boxes[4]) > 0:
+                for completed_box in boxes[4]:
                     self.board[completed_box] = str(self.current_player.player_number)
                     self.current_player.player_score += 1
-                return True  # Box completed -> another move
+                return True, boxes  # Box completed -> another move
             else:
-                return False  # Box not completed -> switch player
+                return False, boxes  # Box not completed -> switch player
         else:
             print("Invalid move. Try again.")
-            return True  # Invalid move -> another move
+            return True, None  # Invalid move -> another move
 
     """
     Game

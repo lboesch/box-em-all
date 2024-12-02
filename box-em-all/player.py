@@ -35,7 +35,8 @@ class Human(Player):
         # Let the human player choose an action using input
         try:
             row, col = map(int, input("Enter row and column for your action (e.g., 0 1): ").split())
-            return game.make_move(row, col)
+            another_move, _ = game.make_move(row, col)
+            return another_move
         except ValueError:
             print("Invalid input. Enter two integers separated by a space.")
             return True
@@ -51,7 +52,8 @@ class ComputerRandom(Player):
         # Pick a random available action
         action = random.choice(game.get_available_actions())
         row, col = action
-        return game.make_move(row, col)
+        another_move, _ = game.make_move(row, col)
+        return another_move
         
 """
 Greedy Player
@@ -65,9 +67,9 @@ class ComputerGreedy(Player):
         # Prioritize actions that complete a box
         for available_action in game.get_available_actions():
             row, col = available_action
-            if game.is_valid_action(row, col):
-                completed_boxes = len(game.check_boxes(row, col, sim=True))
-                if completed_boxes > 0:
+            if game.is_valid_action(row, col):  # TODO remove?
+                boxes = game.check_boxes(row, col, sim=True)
+                if len(boxes[4]) > 0:
                     action = (row, col)
                     break
 
@@ -76,7 +78,8 @@ class ComputerGreedy(Player):
             action = random.choice(game.get_available_actions())
             
         row, col = action
-        return game.make_move(row, col)
+        another_move, _ = game.make_move(row, col)
+        return another_move
 
 """
 Q-learning
@@ -107,20 +110,9 @@ class ComputerQLearning(QLearning):
         self.total_reward = 0
         self.state = None
         self.action = None
-        
-    def review_game(self, game):
-        reward = 0
-        # Winning a game
-        if self.player_score > game.opponent_player.player_score:
-            reward += 1
-        # Loosing a game
-        elif self.player_score < game.opponent_player.player_score:
-            reward -= 1
-            
-        self.update_q_table(self.state, self.action, reward, game)
 
     def play_turn(self, game):
-        self.state = game.get_game_state()  # np.copy(game.get_game_state())
+        self.state = game.get_game_state()
                                   
         # Epsilon-greedy action selection
         if random.uniform(0, 1) < self.epsilon:
@@ -132,23 +124,20 @@ class ComputerQLearning(QLearning):
         
         row, col = self.action
         
-        another_move = game.make_move(row, col)
-        boxes_3_edges = game.check_boxes(row, col, edges=3)
-        boxes_4_edges = game.check_boxes(row, col, edges=4)
-
+        another_move, boxes = game.make_move(row, col)
+        
         # Calculate reward
         reward = 0
+        # Box completed 
+        reward += 0.5 * len(boxes[4])
         if another_move:
-            # Box completed 
-            # reward += 0.5 * len(boxes_4_edges) + 0.1 * len(boxes_3_edges)
-            reward += 0.1 * len(boxes_4_edges)
+            # Chance to complete box with next action
+            reward += 0.1 * len(boxes[3])
         else:
             # Giving advantage to opponent
-            if len(boxes_3_edges) > 0:
-                reward -= 0.1 * len(boxes_3_edges)
+            reward -= 0.1 * len(boxes[3])
             # Drawing edge without completing a box
-            # else:
-            #     reward -= 0.1
+            reward -= 0.1
         if game.is_game_over():  # TODO currently not possible to get a reward if the opponent has finished the game (MDP --> next state after opponents action?)
             # Winning a game
             if self.player_score > game.opponent_player.player_score:
@@ -163,6 +152,17 @@ class ComputerQLearning(QLearning):
         self.update_q_table(self.state, self.action, reward, game)  # TODO deque?
         
         return another_move
+    
+    def review_game(self, game):
+        reward = 0
+        # Winning a game
+        if self.player_score > game.opponent_player.player_score:
+            reward += 1
+        # Loosing a game
+        elif self.player_score < game.opponent_player.player_score:
+            reward -= 1
+            
+        self.update_q_table(self.state, self.action, reward, game)
     
     # Update epsilon (decrease exploration)
     def update_epsilon(self):
@@ -191,7 +191,7 @@ class ComputerQTable(QLearning):
     def play_turn(self, game):
         action = self.next_action(game)
         row, col = action    
-        another_move = game.make_move(row, col)
+        another_move, _ = game.make_move(row, col)
         return another_move
     
 """
@@ -219,7 +219,7 @@ class ComputerDQN(Player):
         state = game.get_game_state()
         action = self.next_action(game)
         row, col = action
-        another_move = game.make_move(row, col)
+        another_move, boxes = game.make_move(row, col)
         next_state = game.get_game_state()
         reward = 1 # TODO
         self.total_reward += reward

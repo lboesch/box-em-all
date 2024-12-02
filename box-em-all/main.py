@@ -27,7 +27,7 @@ Q-learning
 def q_learning():
     # Parameters
     extend_q_table = False
-    board_size = 2
+    board_size = 3
     epochs = 100000
     verification_epochs = 100
     ###
