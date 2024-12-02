@@ -10,9 +10,9 @@ import torch.nn.functional as F
 from tqdm import tqdm
 import wandb
 
-"""
-Global Parameters
-"""
+# ====================================================================================================
+# Global Parameters
+# ====================================================================================================
 debug = False
 is_human = False
 do_train = True
@@ -21,9 +21,9 @@ timestsamp = datetime.now().strftime("%Y%m%d%H%M%S")
 if not is_human and do_train and use_wandb:
     wandb.login()
 
-"""
-Q-learning
-"""
+# ====================================================================================================
+# Q-learning
+# ====================================================================================================
 def q_learning():
     # Parameters
     extend_q_table = False
@@ -66,19 +66,20 @@ def q_learning():
     
     # Human Player
     if is_human:
-        player_1 = player.Human(1, 'Human1')
-        player_2 = player.ComputerQTable(2, 'QTable2', model=q_learning)
+        player_1 = player.HumanPlayer('HumanPlayer1')
+        player_2 = player.QPlayer('QPlayer2', model=q_learning)
         game = DotsAndBoxes(rows=board_size, cols=board_size, player_1=player_1, player_2=player_2)
         game.play(print_board=is_human)
         return
     
-    # Training & Verification
-    player_1 = player.ComputerRandom(1, 'Random1')
-    player_2 = player.ComputerQLearning(2, 'QLearning2', model=q_learning, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min)
+    # Game
+    player_1 = player.GreedyPlayer('GreedyPlayer1')
+    player_2 = player.QAgent('QAgent2', model=q_learning, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min)
     game = DotsAndBoxes(rows=board_size, cols=board_size, player_1=player_1, player_2=player_2)
-    verification_player_1 = player.ComputerGreedy(1, 'Greedy1')
-    verification_player_2 = player.ComputerQTable(2, 'QTable2', model=q_learning)
+    verification_player_1 = player.GreedyPlayer('GreedyPlayer1')
+    verification_player_2 = player.QPlayer('QPlayer2', model=q_learning)
     verification_game = DotsAndBoxes(rows=board_size, cols=board_size, player_1=verification_player_1, player_2=verification_player_2)
+    
     # rewards = {}
     for epoch in (pbar := tqdm(range(epochs if do_train else 1))):
         # Training
@@ -86,7 +87,7 @@ def q_learning():
         if do_train:
             game.reset()
             game.play()
-            if (epoch + 1) % 100 == 0:
+            if (epoch + 1) % 10 == 0:
                 player_2.update_epsilon()
     
         # Verification
@@ -109,11 +110,11 @@ def q_learning():
             print(f"Verification score in training epoch {epoch}: {score}")
             print(f"P1 ({verification_game.player_1.player_name}) Win: {round(score['P1'] / verification_epochs * 100, 2)}%")
             print(f"P2 ({verification_game.player_2.player_name}) Win: {round(score['P2'] / verification_epochs * 100, 2)}%")
-            print("--------------------------------------------------------------------------------")          
+            print("--------------------------------------------------------------------------------")
     
-        # Export to Weigths & Biases
-        if not is_human and do_train and use_wandb:
-            wandb.log({"epoch": epoch, "win-greedy": round(score['P1'] / verification_epochs * 100, 2), "win-qplayer": round(score['P2'] / verification_epochs * 100, 2), "tie": round(score['Tie'] / verification_epochs * 100, 2)})
+            # Export to Weigths & Biases
+            if do_train and use_wandb:
+                wandb.log({"epoch": epoch, "win-greedy": round(score['P1'] / verification_epochs * 100, 2), "win-qplayer": round(score['P2'] / verification_epochs * 100, 2), "tie": round(score['Tie'] / verification_epochs * 100, 2)})
 
     if do_train:
         # Save model
@@ -130,13 +131,16 @@ def q_learning():
         # plt.ylabel('Reward')
         # plt.show()
 
-"""
-Deep Q-network (DQN)
-"""
+# ====================================================================================================
+# Deep Q-network (DQN)
+# ====================================================================================================
+# https://pytorch.org/tutorials/beginner/saving_loading_models.html
+# https://github.com/Floni/AI_dotsandboxes/blob/master/dotsandboxesplayer.py
+# ====================================================================================================
 def dqn():
     # Parameters
-    board_size = 2
-    epochs = 10000
+    board_size = 3
+    epochs = 1000000
     verification_epochs = 100
     ###
     alpha = 0.1  # TODO
@@ -148,7 +152,7 @@ def dqn():
     model_name_load = 'dqn_2_2'
     model_name_save = 'dqn' + str(board_size) + '_' + timestsamp
 
-    # Device
+    # Device TODO
     if torch.cuda.is_available():
         device = torch.device("cuda")
     elif torch.backends.mps.is_available():
@@ -169,9 +173,12 @@ def dqn():
     # replay_buffer = ReplayBuffer(MEMORY_CAPACITY)
     
     # Game
-    player_1 = player.ComputerRandom(1, 'Random1')
-    player_2 = player.ComputerDQN(2, 'DQN2', model=policy_net, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min)
+    player_1 = player.RandomPlayer('RandomPlayer1')
+    player_2 = player.DQNAgent('DQNAgent2', model=policy_net, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min)
     game = DotsAndBoxes(rows=board_size, cols=board_size, player_1=player_1, player_2=player_2)
+    verification_player_1 = player.GreedyPlayer('GreedyPlayer1')
+    verification_player_2 = player.DQNPlayer('DQNPlayer2', model=policy_net)
+    verification_game = DotsAndBoxes(rows=board_size, cols=board_size, player_1=verification_player_1, player_2=verification_player_2)
     
     # Training
     for epoch in (pbar := tqdm(range(epochs if do_train else 1))):
@@ -180,13 +187,32 @@ def dqn():
         game.play()
         if (epoch + 1) % 100 == 0:
             player_2.optimize(32)
+            
+        # Verification
+        if debug or ((epoch + 1) % 1000 == 0): 
+            score = {'P1': 0, 'P2': 0, 'Tie': 0}
+            for _ in range(verification_epochs):
+                verification_game.reset()
+                verification_game.play()
+                
+                # Update player score
+                if verification_game.player_1.player_score > verification_game.player_2.player_score:
+                    score['P1'] += 1
+                elif verification_game.player_1.player_score < verification_game.player_2.player_score:
+                    score['P2'] += 1
+                else:
+                    score['Tie'] += 1
+        
+            # Print verification score accross all verification epochs
+            print("--------------------------------------------------------------------------------")
+            print(f"Verification score in training epoch {epoch}: {score}")
+            print(f"P1 ({verification_game.player_1.player_name}) Win: {round(score['P1'] / verification_epochs * 100, 2)}%")
+            print(f"P2 ({verification_game.player_2.player_name}) Win: {round(score['P2'] / verification_epochs * 100, 2)}%")
+            print("--------------------------------------------------------------------------------")
 
-    # https://pytorch.org/tutorials/beginner/saving_loading_models.html
-    # https://github.com/Floni/AI_dotsandboxes/blob/master/dotsandboxesplayer.py
-
-"""
-Start
-"""
+# ====================================================================================================
+# Start
+# ====================================================================================================
 if __name__ == "__main__":
-    q_learning()  # Q-learning
-    # dqn()  # Deep Q-network
+    # q_learning()  # Q-learning
+    dqn()  # Deep Q-network

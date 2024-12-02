@@ -12,7 +12,9 @@ class DotsAndBoxes:
         self.all_actions = self.__init_actions()
         # Initialize players
         self.player_1 = player_1
+        self.player_1.player_number = 1
         self.player_2 = player_2
+        self.player_2.player_number = 2
         self.reset()
         
     def reset(self):
@@ -148,6 +150,7 @@ class DotsAndBoxes:
         board[::2, ::2] = "•"
         return board
     
+    # Calculate game state size
     @staticmethod
     def calc_game_state_size(rows, cols):
         return rows * (cols + 1) + cols * (rows + 1)
@@ -155,6 +158,28 @@ class DotsAndBoxes:
     # Get current game state as flattened vector
     def get_game_state(self):
         return np.append(self.board[1::2, ::2] != ' ', self.board[::2, 1::2] != ' ').flatten().astype(int)
+    
+    # Calculate reward
+    def calc_reward(self, another_move, boxes):
+        reward = 0
+        # Box completed 
+        reward += 1 * len(boxes[4])
+        if another_move:
+            # Chance to complete box with next action
+            reward += 0.1 * len(boxes[3])
+        else:
+            # Giving advantage to opponent
+            reward -= 1 * len(boxes[3])
+            # Drawing edge without completing a box
+            # reward -= 0.1
+        if self.is_game_over():  # TODO currently not possible to get a reward if the opponent has finished the game (MDP --> next state after opponents action?)
+            # Winning a game
+            if self.current_player.player_score > self.opponent_player.player_score:
+                reward += 1
+            # Loosing a game
+            elif self.current_player.player_score < self.opponent_player.player_score:
+                reward -= 1
+        return reward
     
     # Print the board
     def print_board(self):

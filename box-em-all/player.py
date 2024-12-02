@@ -7,9 +7,13 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+
+"""
+Player Base Class
+"""
 class Player(ABC):
-    def __init__(self, player_number: int, player_name: str):
-        self.player_number = player_number
+    def __init__(self, player_name: str):
+        self.player_number = None
         self.player_name = player_name
         self.reset()
 
@@ -27,7 +31,7 @@ class Player(ABC):
 """
 Human Player
 """
-class Human(Player):
+class HumanPlayer(Player):
     def reset(self):
         super().reset()
     
@@ -44,7 +48,7 @@ class Human(Player):
 """
 Random Player
 """
-class ComputerRandom(Player):
+class RandomPlayer(Player):
     def reset(self):
         super().reset()
     
@@ -58,7 +62,7 @@ class ComputerRandom(Player):
 """
 Greedy Player
 """
-class ComputerGreedy(Player):
+class GreedyPlayer(Player):
     def reset(self):
         super().reset()
     
@@ -81,9 +85,9 @@ class ComputerGreedy(Player):
         another_move, _ = game.make_move(row, col)
         return another_move
 
-"""
-Q-learning
-"""
+# ====================================================================================================
+# Q-learning
+# ====================================================================================================
 class QLearning(Player):
     # Predict next action
     def next_action(self, game):
@@ -94,9 +98,9 @@ class QLearning(Player):
 """
 Q-learning Agent
 """
-class ComputerQLearning(QLearning):
-    def __init__(self, player_number, player_name, model, alpha, gamma, epsilon, epsilon_decay, epsilon_min):
-        super().__init__(player_number, player_name)
+class QAgent(QLearning):
+    def __init__(self, player_name, model, alpha, gamma, epsilon, epsilon_decay, epsilon_min):
+        super().__init__(player_name)
         self.model = model
         # Hyperparameters
         self.alpha = alpha  # Learning rate
@@ -123,29 +127,10 @@ class ComputerQLearning(QLearning):
             self.action = self.next_action(game)
         
         row, col = self.action
-        
         another_move, boxes = game.make_move(row, col)
         
         # Calculate reward
-        reward = 0
-        # Box completed 
-        reward += 0.5 * len(boxes[4])
-        if another_move:
-            # Chance to complete box with next action
-            reward += 0.1 * len(boxes[3])
-        else:
-            # Giving advantage to opponent
-            reward -= 0.1 * len(boxes[3])
-            # Drawing edge without completing a box
-            reward -= 0.1
-        if game.is_game_over():  # TODO currently not possible to get a reward if the opponent has finished the game (MDP --> next state after opponents action?)
-            # Winning a game
-            if self.player_score > game.opponent_player.player_score:
-                reward += 1
-            # Loosing a game
-            elif self.player_score < game.opponent_player.player_score:
-                reward -= 1
-                
+        reward = game.calc_reward(another_move, boxes)         
         self.total_reward += reward
 
         # Update Q-table
@@ -178,11 +163,11 @@ class ComputerQLearning(QLearning):
         self.model.update_q_value(state, action, new_q_value)
     
 """
-Q-table Player
+Q-learning Player
 """
-class ComputerQTable(QLearning):
-    def __init__(self, player_number, player_name, model):
-        super().__init__(player_number, player_name)
+class QPlayer(QLearning):
+    def __init__(self, player_name, model):
+        super().__init__(player_name)
         self.model = model
         
     def reset(self):
@@ -190,18 +175,29 @@ class ComputerQTable(QLearning):
 
     def play_turn(self, game):
         action = self.next_action(game)
-        row, col = action    
+        row, col = action
         another_move, _ = game.make_move(row, col)
         return another_move
-    
+                
+# ====================================================================================================
+# DQN
+# ====================================================================================================
+class DQN(Player):
+    # Predict next action
+    def next_action(self, game):
+        state = torch.tensor(game.get_game_state(), dtype=torch.float32)
+        q_values = self.model(state)
+        # return game.get_action_by_idx(torch.argmax(q_values).item())  # TODO transform action to scalar value
+        return max(game.get_available_actions(), key=lambda action: q_values[game.get_idx_by_action(*action)].item())
+
 """
 DQN Agent
 """
-class ComputerDQN(Player):
-    def __init__(self, player_number, player_name, model, alpha, gamma, epsilon, epsilon_decay, epsilon_min):
-        super().__init__(player_number, player_name)
+class DQNAgent(DQN):
+    def __init__(self, player_name, model, alpha, gamma, epsilon, epsilon_decay, epsilon_min):
+        super().__init__(player_name)
         self.model = model
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.alpha)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=alpha)
         self.loss_funct = nn.MSELoss()
         self.memory = deque(maxlen=2000)
         # Hyperparameters
@@ -217,28 +213,25 @@ class ComputerDQN(Player):
         
     def play_turn(self, game):
         state = game.get_game_state()
-        action = self.next_action(game)
+        if np.random.rand() <= self.epsilon:
+            action = random.choice(game.get_available_actions()) # TODO
+        else:
+            action = self.next_action(game)
         row, col = action
         another_move, boxes = game.make_move(row, col)
         next_state = game.get_game_state()
-        reward = 1 # TODO
+        reward = game.calc_reward(another_move, boxes)
         self.total_reward += reward
         done = True # TODO
         self.memory.append((state, game.get_idx_by_action(row, col), reward, next_state, done))
-        return another_move
-    
-    def next_action(self, game):
-        if np.random.rand() <= self.epsilon:
-            return random.choice(game.get_available_actions()) # TODO
-        state = torch.tensor(game.get_game_state(), dtype=torch.float32)
-        q_values = self.model(state)
-        return game.get_action_by_idx(torch.argmax(q_values).item())  # TODO transform action to scalar value
+        return another_move      
     
     # Replay with previous experience to train model
     def optimize(self, batch_size):
         if len(self.memory) < batch_size:
             return
         minibatch = random.sample(self.memory, batch_size)
+        # Optimize net
         for state, action, reward, next_state, done in minibatch:
             target = reward
             if not done:
@@ -249,5 +242,23 @@ class ComputerDQN(Player):
             loss = self.loss_funct(self.model(torch.tensor(state, dtype=torch.float32)), torch.tensor(target_f))
             loss.backward()
             self.optimizer.step()
+        # Decrease epsilon
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
+    
+"""
+DQN Player
+"""
+class DQNPlayer(DQN):
+    def __init__(self, player_name, model):
+        super().__init__(player_name)
+        self.model = model
+        
+    def reset(self):
+        super().reset()
+        
+    def play_turn(self, game):
+        action = self.next_action(game)
+        row, col = action
+        another_move, _ = game.make_move(row, col)
+        return another_move    
