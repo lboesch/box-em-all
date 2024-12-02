@@ -24,9 +24,9 @@ class DotsAndBoxes:
         # Reset players
         self.player_1.reset()
         self.player_2.reset()
-        self.current_player = self.player_2
+        # self.current_player = self.player_2
+        self.current_player = random.choice((self.player_1, self.player_2))
         self.opponent_player = self.player_2 if self.current_player == self.player_1 else self.player_1
-        # self.current_player = random.choice((self.player_1, self.player_2))
         # Reset scoreboard
         # self.scores = {self.player_1.player_number: self.player_1.player_score, self.player_2.player_number: self.player_2.player_score}
     
@@ -62,7 +62,7 @@ class DotsAndBoxes:
     # Check for any boxes that this edge might have completed
     def check_boxes(self, row, col, sim=None):
         boxes = {1: [], 2: [], 3: [], 4: []}
-        if sim:
+        if sim:  # TODO board as object to copy for simulation
            self.draw_edge(row, col)  # Draw edge (for simulation)
         if self.is_horizontal_edge(row, col):  # Horizontal edge
             for dx in [-1, 1]:
@@ -110,6 +110,11 @@ class DotsAndBoxes:
     # Return a list of available actions
     def get_available_actions(self):
         return self.available_actions
+    
+    # Return a shuffled list of available actions
+    def get_random_available_actions(self):
+        actions = self.get_available_actions()
+        return random.sample(actions, len(actions))
 
     # Check if a action is valid
     def is_valid_action(self, row, col):

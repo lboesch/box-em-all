@@ -91,9 +91,7 @@ class GreedyPlayer(Player):
 class QLearning(Player):
     # Predict next action
     def next_action(self, game):
-        actions = game.get_available_actions()
-        random.shuffle(actions)
-        return max(actions, key=lambda action: self.model.get_q_value(game.get_game_state(), action))  # TODO what if multiple max?
+        return max(game.get_random_available_actions(), key=lambda action: self.model.get_q_value(game.get_game_state(), action))  # TODO what if multiple max?
 
 """
 Q-learning Agent
@@ -130,7 +128,7 @@ class QAgent(QLearning):
         another_move, boxes = game.make_move(row, col)
         
         # Calculate reward
-        reward = game.calc_reward(another_move, boxes)         
+        reward = game.calc_reward(another_move, boxes)
         self.total_reward += reward
 
         # Update Q-table
@@ -188,7 +186,7 @@ class DQN(Player):
         state = torch.tensor(game.get_game_state(), dtype=torch.float32)
         q_values = self.model(state)
         # return game.get_action_by_idx(torch.argmax(q_values).item())  # TODO transform action to scalar value
-        return max(game.get_available_actions(), key=lambda action: q_values[game.get_idx_by_action(*action)].item())
+        return max(game.get_random_available_actions, key=lambda action: q_values[game.get_idx_by_action(*action)].item())
 
 """
 DQN Agent

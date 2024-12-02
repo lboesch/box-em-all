@@ -144,8 +144,8 @@ def dqn():
     verification_epochs = 100
     ###
     alpha = 0.1  # TODO
-    gamma = 0.4  # TODO
-    epsilon = 0.1  # TODO
+    gamma = 0.9  # TODO
+    epsilon = 1.0  # TODO
     epsilon_decay = 0.995  # TODO
     epsilon_min = 0.1  # TODO
     ###
@@ -214,5 +214,5 @@ def dqn():
 # Start
 # ====================================================================================================
 if __name__ == "__main__":
-    # q_learning()  # Q-learning
-    dqn()  # Deep Q-network
+    q_learning()  # Q-learning
+    # dqn()  # Deep Q-network
