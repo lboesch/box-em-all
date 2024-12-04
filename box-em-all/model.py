@@ -7,6 +7,9 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+"""
+Model Base Class
+"""
 class Model:
     # Writing the object to a file using pickle
     def save(self, name):
@@ -24,9 +27,9 @@ class Model:
         with open(filename, 'rb') as file:
             return pickle.load(file)
 
-"""
-Q-learning
-"""
+# ====================================================================================================
+# Q-learning
+# ====================================================================================================
 class QLearning(Model):
     def __init__(self, q_table={}):
         # Initialize Q-table
@@ -40,10 +43,11 @@ class QLearning(Model):
     def update_q_value(self, state, action, q_value):
         self.q_table[(state.tobytes(), action)] = q_value
     
-"""
-DQN (Deep Q-network)
-Link: https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
-"""
+# ====================================================================================================
+# DQN
+# ====================================================================================================
+# https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
+# ====================================================================================================
 class DQN(nn.Module):
     def __init__(self, state_size, action_size):
         super(DQN, self).__init__()

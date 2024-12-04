@@ -30,8 +30,8 @@ def q_learning():
     # Parameters
     extend_q_table = False
     board_size = 3
-    epochs = 100000
-    verification_epochs = 100
+    episodes = 100000
+    verification_episodes = 100
     ###
     alpha = 0.1  # TODO
     gamma = 0.9  # TODO
@@ -55,8 +55,8 @@ def q_learning():
                 "epsilon": epsilon,
                 "epsilon_decay": epsilon_decay,
                 "epsilon_min": epsilon_min,
-                "epochs": epochs,
-                "verification_epochs": verification_epochs,
+                "episodes": episodes,
+                "verification_episodes": verification_episodes,
                 "game-state": "with-both-players",
             },
             tags=["q-learning", "dots-and-boxes"]
@@ -85,19 +85,19 @@ def q_learning():
     verification_game = DotsAndBoxes(rows=board_size, cols=board_size, player_1=verification_player_1, player_2=verification_player_2)
     
     # rewards = {}
-    for epoch in (pbar := tqdm(range(epochs if do_train else 1))):
+    for episode in (pbar := tqdm(range(episodes if do_train else 1))):
         # Training
-        pbar.set_description(f"Training Epoch {epoch}")
+        pbar.set_description(f"Training Episode {episode}")
         if do_train:
             game.reset()
             game.play()
-            if (epoch + 1) % 10 == 0:
+            if (episode + 1) % 10 == 0:
                 player_2.update_epsilon()
     
         # Verification
-        if debug or ((epoch + 1) % 1000 == 0): 
+        if debug or ((episode + 1) % 1000 == 0): 
             score = {'P1': 0, 'P2': 0, 'Tie': 0}
-            for _ in range(verification_epochs):
+            for _ in range(verification_episodes):
                 verification_game.reset()
                 verification_game.play()
                 
@@ -109,16 +109,21 @@ def q_learning():
                 else:
                     score['Tie'] += 1
         
-            # Print verification score accross all verification epochs
+            # Print verification score accross all verification episodes
             print("--------------------------------------------------------------------------------")
-            print(f"Verification score in training epoch {epoch}: {score}")
-            print(f"P1 ({verification_game.player_1.player_name}) Win: {round(score['P1'] / verification_epochs * 100, 2)}%")
-            print(f"P2 ({verification_game.player_2.player_name}) Win: {round(score['P2'] / verification_epochs * 100, 2)}%")
+            print(f"Verification score in training episode {episode}: {score}")
+            print(f"P1 ({verification_game.player_1.player_name}) Win: {round(score['P1'] / verification_episodes * 100, 2)}%")
+            print(f"P2 ({verification_game.player_2.player_name}) Win: {round(score['P2'] / verification_episodes * 100, 2)}%")
             print("--------------------------------------------------------------------------------")
     
             # Export to Weigths & Biases
             if do_train and use_wandb:
-                wandb.log({"epoch": epoch, "win-random-player": round(score['P1'] / verification_epochs * 100, 2), "win-q-player": round(score['P2'] / verification_epochs * 100, 2), "tie": round(score['Tie'] / verification_epochs * 100, 2)})
+                wandb.log({
+                    "episode": episode,
+                    "win-random-player": round(score['P1'] / verification_episodes * 100, 2),
+                    "win-q-player": round(score['P2'] / verification_episodes * 100, 2),
+                    "tie": round(score['Tie'] / verification_episodes * 100, 2)
+                })
 
     if do_train and save_model:
         # Save model
@@ -131,7 +136,7 @@ def q_learning():
         # p = np.poly1d(z)
         # plt.plot(x, p(x))
         # plt.plot(x, y)
-        # plt.xlabel('Epoch')
+        # plt.xlabel('Episode')
         # plt.ylabel('Reward')
         # plt.show()
 
@@ -144,11 +149,11 @@ def q_learning():
 def dqn():
     # Parameters
     board_size = 3
-    epochs = 1000000
-    verification_epochs = 100
+    episodes = 1000000
+    verification_episodes = 100
     ###
     alpha = 0.001  # TODO
-    gamma = 0.9  # TODO
+    gamma = 0.2  # TODO
     epsilon = 1.0  # TODO
     epsilon_decay = 0.995  # TODO
     epsilon_min = 0.1  # TODO
@@ -169,8 +174,8 @@ def dqn():
                 "epsilon": epsilon,
                 "epsilon_decay": epsilon_decay,
                 "epsilon_min": epsilon_min,
-                "epochs": epochs,
-                "verification_epochs": verification_epochs,
+                "episodes": episodes,
+                "verification_episodes": verification_episodes,
                 "game-state": "with-both-players",
             },
             tags=["dqn", "dots-and-boxes"]
@@ -206,21 +211,21 @@ def dqn():
     verification_game = DotsAndBoxes(rows=board_size, cols=board_size, player_1=verification_player_1, player_2=verification_player_2)
     
     # Training
-    for epoch in (pbar := tqdm(range(epochs if do_train else 1))):
-        pbar.set_description(f"Training Epoch {epoch}")
+    for episode in (pbar := tqdm(range(episodes if do_train else 1))):
+        pbar.set_description(f"Training Episode {episode}")
         # TODO with device:
         policy_net.train()
         game.reset()
         game.play()
-        if (epoch + 1) % 100 == 0:
+        if (episode + 1) % 100 == 0:
             player_2.optimize(32)
             
         # Verification
-        if debug or ((epoch + 1) % 1000 == 0): 
+        if debug or ((episode + 1) % 1000 == 0): 
             score = {'P1': 0, 'P2': 0, 'Tie': 0}
+            policy_net.eval()
             with torch.no_grad():
-                policy_net.eval()
-                for _ in range(verification_epochs):
+                for _ in range(verification_episodes):
                     verification_game.reset()
                     verification_game.play()
                     
@@ -232,16 +237,21 @@ def dqn():
                     else:
                         score['Tie'] += 1
         
-            # Print verification score accross all verification epochs
+            # Print verification score accross all verification episodes
             print("--------------------------------------------------------------------------------")
-            print(f"Verification score in training epoch {epoch}: {score}")
-            print(f"P1 ({verification_game.player_1.player_name}) Win: {round(score['P1'] / verification_epochs * 100, 2)}%")
-            print(f"P2 ({verification_game.player_2.player_name}) Win: {round(score['P2'] / verification_epochs * 100, 2)}%")
+            print(f"Verification score in training episode {episode}: {score}")
+            print(f"P1 ({verification_game.player_1.player_name}) Win: {round(score['P1'] / verification_episodes * 100, 2)}%")
+            print(f"P2 ({verification_game.player_2.player_name}) Win: {round(score['P2'] / verification_episodes * 100, 2)}%")
             print("--------------------------------------------------------------------------------")
             
             # Export to Weigths & Biases
             if do_train and use_wandb:
-                wandb.log({"epoch": epoch, "win-random-player": round(score['P1'] / verification_epochs * 100, 2), "win-dqn-player": round(score['P2'] / verification_epochs * 100, 2), "tie": round(score['Tie'] / verification_epochs * 100, 2)})
+                wandb.log({
+                    "episode": episode,
+                    "win-random-player": round(score['P1'] / verification_episodes * 100, 2),
+                    "win-dqn-player": round(score['P2'] / verification_episodes * 100, 2),
+                    "tie": round(score['Tie'] / verification_episodes * 100, 2)
+                })
                 
     if do_train and save_model:
         # Save model

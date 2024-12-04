@@ -1,6 +1,9 @@
 import numpy as np
 import random
 
+# ====================================================================================================
+# Dots & Boxes
+# ====================================================================================================
 class DotsAndBoxes:
     def __init__(self, rows, cols, player_1, player_2):
         self.games_played = 0
@@ -45,8 +48,8 @@ class DotsAndBoxes:
     def is_vertical_edge(self, row, col):
         return row % 2 == 1 and col % 2 == 0
     
-    # Draw edge
-    def draw_edge(self, row, col):
+    # Add edge
+    def add_edge(self, row, col):
         if self.is_horizontal_edge(row, col):  # Horizontal edge
             self.board[row, col] = "-"
         elif self.is_vertical_edge(row, col):  # Vertical edge
@@ -63,7 +66,7 @@ class DotsAndBoxes:
     def check_boxes(self, row, col, sim=None):
         boxes = {1: [], 2: [], 3: [], 4: []}
         if sim:  # TODO board as object to copy for simulation
-           self.draw_edge(row, col)  # Draw edge (for simulation)
+           self.add_edge(row, col)  # Add edge (for simulation)
         if self.is_horizontal_edge(row, col):  # Horizontal edge
             for dx in [-1, 1]:
                 row_offset = row + dx
@@ -92,7 +95,7 @@ class DotsAndBoxes:
         return edges
 
     """
-    Actions / Moves
+    Actions
     """
     # Initialize actions
     def __init_actions(self):
@@ -126,26 +129,6 @@ class DotsAndBoxes:
     def get_idx_by_action(self, row, col):
         return self.all_actions.index((row, col))
 
-    # Make a move
-    # TODO rename to step
-    def make_move(self, row, col):
-        if self.is_valid_action(row, col):
-            self.available_actions.remove((row, col))  # Remove action from available actions
-            # Draw edge
-            self.draw_edge(row, col)
-            # Check for completed boxes
-            boxes = self.check_boxes(row, col)
-            if len(boxes[4]) > 0:
-                for completed_box in boxes[4]:
-                    self.board[completed_box] = str(self.current_player.player_number)
-                    self.current_player.player_score += 1
-                return True, boxes  # Box completed -> another move
-            else:
-                return False, boxes  # Box not completed -> switch player
-        else:
-            print("Invalid move. Try again.")
-            return True, None  # Invalid move -> another move
-
     """
     Game
     """
@@ -164,18 +147,24 @@ class DotsAndBoxes:
     def get_game_state(self):
         return np.append(self.board[1::2, ::2] != ' ', self.board[::2, 1::2] != ' ').flatten().astype(int)
     
+    # Get difference between player scores
+    def get_player_score_diff(self):
+        return self.current_player.player_score - self.opponent_player.player_score
+    
     # Calculate reward
-    def calc_reward(self, boxes, another_move):
+    def calc_reward(self, boxes, another_step, score_diff=None):
         reward = 0
+        # Difference between player scores
+        if score_diff is not None:
+            reward += 0.1 * (self.get_player_score_diff() - score_diff)  
         # Box completed 
-        reward += 0.1 * len(boxes[4])
-        if another_move:
+        # reward += 0.1 * len(boxes[4])
+        # if another_step:
             # Chance to complete box with next action
             # reward += 0.1 * len(boxes[3])
-            pass
-        else:
+        # else:
             # Giving advantage to opponent
-            reward -= 0.1 * len(boxes[3])
+            # reward -= 0.1 * len(boxes[3])
             # Drawing edge without completing a box
             # reward -= 0.1
         if self.is_game_over():  # TODO currently not possible to get a reward if the opponent has finished the game (MDP --> next state after opponents action?)
@@ -186,6 +175,25 @@ class DotsAndBoxes:
             elif self.current_player.player_score < self.opponent_player.player_score:
                 reward -= 1
         return reward
+    
+    # Perform a step
+    def step(self, row, col):
+        if self.is_valid_action(row, col):
+            self.available_actions.remove((row, col))  # Remove action from list of available actions
+            # Add edge
+            self.add_edge(row, col)
+            # Check for completed boxes
+            boxes = self.check_boxes(row, col)
+            if len(boxes[4]) > 0:
+                for completed_box in boxes[4]:
+                    self.board[completed_box] = str(self.current_player.player_number)
+                    self.current_player.player_score += 1
+                return True, boxes  # Box completed -> another step
+            else:
+                return False, boxes  # Box not completed -> switch player
+        else:
+            print("Invalid action. Try again.")
+            return True, None  # Invalid action -> another step TODO create custom exception
     
     # Print the board
     def print_board(self):
@@ -217,15 +225,15 @@ class DotsAndBoxes:
                 print(f"Score -> Player 1: {self.player_1.player_score}, Player 2: {self.player_2.player_score}")
                 print(f"Player -> {self.current_player.player_name}'s turn.")
                 print("--------------------------------------------------------------------------------")
-            # Play turn
-            another_move = self.current_player.play_turn(self)
-            # Exit game and let the opponent player see the final action
+            # Player action
+            another_step = self.current_player.act(self)
+            # Game over: Let the opponent review the game and then exit
             if self.is_game_over():
                 self.switch_player()
                 self.current_player.review_game(self)
                 break
             # Switch player
-            if not another_move:
+            if not another_step:
                 self.switch_player()
 
         # Game Over
