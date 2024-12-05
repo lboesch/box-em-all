@@ -1,4 +1,3 @@
-from datetime import datetime
 from game import DotsAndBoxes
 import matplotlib.pyplot as plt
 import model
@@ -19,7 +18,6 @@ do_train = True
 save_model = True
 use_wandb = False
 wandb_project = "box-em-all"
-timestsamp = datetime.now().strftime("%Y%m%d%H%M%S")
 if not is_human and do_train and use_wandb:
     wandb.login()
 
@@ -40,7 +38,7 @@ def q_learning():
     epsilon_min = 0.1  # TODO
     ###
     model_name_load = 'q_table_2_2'
-    model_name_save = 'q_learning_' + str(board_size) + '_' + timestsamp
+    model_name_save = 'q_learning_' + str(board_size)
 
     # Weights & Biases
     if not is_human and do_train and use_wandb:
@@ -91,8 +89,6 @@ def q_learning():
         if do_train:
             game.reset()
             game.play()
-            if (episode + 1) % 10 == 0:
-                player_2.update_epsilon()
     
         # Verification
         if debug or ((episode + 1) % 1000 == 0): 
@@ -149,7 +145,7 @@ def q_learning():
 def dqn():
     # Parameters
     board_size = 3
-    episodes = 1000000
+    episodes = 30000
     verification_episodes = 100
     ###
     alpha = 0.001  # TODO
@@ -159,7 +155,7 @@ def dqn():
     epsilon_min = 0.1  # TODO
     ###
     model_name_load = 'dqn_2_2'
-    model_name_save = 'dqn' + str(board_size) + '_' + timestsamp
+    model_name_save = 'dqn_' + str(board_size)
     
     # Weights & Biases
     if not is_human and do_train and use_wandb:
@@ -181,44 +177,44 @@ def dqn():
             tags=["dqn", "dots-and-boxes"]
         )
 
-    # TODO Device
+    # Device
     if torch.cuda.is_available():
         device = torch.device("cuda")
-    elif torch.backends.mps.is_available():
-        device = torch.device("mps")
+    # elif torch.backends.mps.is_available():  # TODO very slow on Apple M1
+    #     device = torch.device("mps")
     else:
         device = torch.device("cpu")
+        
+    # Human Player
+    if is_human:
+        player_1 = player.HumanPlayer('HumanPlayer1')
+        player_2 = player.DQNPlayer('DQNPlayer2', model=model.DQN.load(model_name_load))
+        game = DotsAndBoxes(rows=board_size, cols=board_size, player_1=player_1, player_2=player_2)
+        game.play(print_board=is_human)
+        return
      
     # Model
     state_size = DotsAndBoxes.calc_game_state_size(board_size, board_size)
     action_size = state_size
     policy_net = model.DQN(state_size, action_size)
-    # TODO policy_net.to(device)
-    # TODO policy and target net
-    # target_net = model.DQN(state_size, action_size)
-    # target_net.load_state_dict(policy_net.state_dict())
-    # target_net.eval()
-        
-    # optimizer = optim.Adam(policy_net.parameters(), lr=LEARNING_RATE)
-    # replay_buffer = ReplayBuffer(MEMORY_CAPACITY)
+    policy_net.to(device)
     
     # Game
     player_1 = player.GreedyPlayer('GreedyPlayer1')
+    # player_1 = player.DQNPlayer('DQNPlayer1', model=model.DQN.load("dqn3_20241205124848"))
     player_2 = player.DQNAgent('DQNAgent2', model=policy_net, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min)
     game = DotsAndBoxes(rows=board_size, cols=board_size, player_1=player_1, player_2=player_2)
     verification_player_1 = player.RandomPlayer('RandomPlayer1')
+    # verification_player_1 = player_1
     verification_player_2 = player.DQNPlayer('DQNPlayer2', model=policy_net)
     verification_game = DotsAndBoxes(rows=board_size, cols=board_size, player_1=verification_player_1, player_2=verification_player_2)
     
     # Training
     for episode in (pbar := tqdm(range(episodes if do_train else 1))):
         pbar.set_description(f"Training Episode {episode}")
-        # TODO with device:
         policy_net.train()
         game.reset()
         game.play()
-        if (episode + 1) % 100 == 0:
-            player_2.optimize(32)
             
         # Verification
         if debug or ((episode + 1) % 1000 == 0): 
