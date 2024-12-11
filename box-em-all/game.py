@@ -5,12 +5,11 @@ import random
 # Dots & Boxes
 # ====================================================================================================
 class DotsAndBoxes:
-    def __init__(self, rows, cols, player_1, player_2):
+    def __init__(self, board_size, player_1, player_2):
         self.games_played = 0
         # Initialize board
-        self.rows = rows
-        self.cols = cols
-        self.total_boxes = self.rows * self.cols
+        self.board_size = board_size
+        self.total_boxes = board_size ** 2
         self.empty_board = self.__init_board()
         self.all_actions = self.__init_actions()
         # Initialize players
@@ -134,14 +133,14 @@ class DotsAndBoxes:
     """
     # Initialize board
     def __init_board(self):
-        board = np.full(shape=(2 * self.rows + 1, 2 * self.cols + 1), fill_value=" ")
+        board = np.full(shape=(2 * self.board_size + 1, 2 * self.board_size + 1), fill_value=" ")
         board[::2, ::2] = "•"
         return board
     
     # Calculate game state size
     @staticmethod
-    def calc_game_state_size(rows, cols):
-        return rows * (cols + 1) + cols * (rows + 1)
+    def calc_game_state_size(board_size):
+        return 2 * (board_size * (board_size + 1))
     
     # Get current game state as flattened vector
     def get_game_state(self):
@@ -154,26 +153,25 @@ class DotsAndBoxes:
     # Calculate reward
     def calc_reward(self, boxes, another_step, score_diff=None):
         reward = 0
-        # Difference between player scores
-        if score_diff is not None:
-            reward += 0.1 * (self.get_player_score_diff() - score_diff)  
-        # Box completed 
-        # reward += 0.1 * len(boxes[4])
-        # if another_step:
-            # Chance to complete box with next action
-            # reward += 0.1 * len(boxes[3])
-        # else:
-            # Giving advantage to opponent
-            # reward -= 0.1 * len(boxes[3])
-            # Drawing edge without completing a box
-            # reward -= 0.1
-        if self.is_game_over():  # TODO currently not possible to get a reward if the opponent has finished the game (MDP --> next state after opponents action?)
+        if self.is_game_over():
             # Winning a game
             if self.current_player.player_score > self.opponent_player.player_score:
                 reward += 1
             # Loosing a game
             elif self.current_player.player_score < self.opponent_player.player_score:
                 reward -= 1
+        else:
+            # Box completed
+            # reward += 0.5 * len(boxes[4])
+            # Difference between player scores
+            if score_diff is not None:
+                reward += 0.1 * (self.get_player_score_diff() - score_diff)
+            # if another_step:
+            #     # Chance to complete box with next action
+            #     reward += 0.1 * len(boxes[3])
+            # else:
+            #     # Giving advantage to opponent
+            #     reward -= 0.1 * len(boxes[3])
         return reward
     
     # Perform a step

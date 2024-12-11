@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import deque
+from game import DotsAndBoxes
 import copy
 import model
 import numpy as np
@@ -27,6 +28,19 @@ class Player(ABC):
  
     def review_game(self, game):
         pass
+    
+# class Agent(Player):
+#     def __init__(self, player_name, policy):
+#         super().__init__(player_name)
+#         self.policy = policy
+    
+#     def reset(self):
+#         super().reset()
+    
+#     def act(self, game):
+#         action = self.policy.next_action(game)
+#         another_step, _ = game.step(*action)
+#         return another_step
     
 """
 Human Player
@@ -111,7 +125,7 @@ class QAgent(QLearning):
         self.total_reward = 0
 
     def act(self, game):
-        if self.state is not None:  # TODO deque?
+        if self.state is not None:  # TODO hack -> deque, dataclass, SimpleNamespace?
             self.reward = game.calc_reward(self.boxes, self.another_step)
             self.total_reward += self.reward
             # Update Q-table
@@ -182,8 +196,11 @@ class DQNAgent(DQN):
         self.target_model = copy.deepcopy(model)
         self.target_model.to(self.device)
         self.target_model.eval()
-        self.optimizer = optim.Adam(self.model.parameters(), lr=alpha)
+        # self.optimizer = optim.Adam(self.model.parameters(), lr=alpha)
+        # self.optimizer = optim.AdamW(self.model.parameters(), lr=alpha)
+        self.optimizer = optim.SGD(self.model.parameters(), lr=alpha)
         self.loss_funct = nn.MSELoss()
+        # self.loss_funct = nn.SmoothL1Loss()
         # Hyperparameters
         self.alpha = alpha  # Learning rate
         self.gamma = gamma  # Discount factor
@@ -192,7 +209,7 @@ class DQNAgent(DQN):
         self.epsilon_min = epsilon_min
         self.epsilon_update_freq = 100
         # Training
-        self.batch_size = 32
+        self.batch_size = 128
         self.max_replay_size = 32 * self.batch_size
         self.min_replay_size = 8 * self.batch_size
         self.replay_memory = deque(maxlen=self.max_replay_size)
@@ -210,17 +227,17 @@ class DQNAgent(DQN):
         self.score_diff = 0
         self.reward = 0
         self.total_reward = 0
+        self.last_loss = 0
         
     def act(self, game):
-        if self.state is not None:
+        if self.state is not None:  # TODO hack -> deque, dataclass, SimpleNamespace?
             self.reward = game.calc_reward(self.boxes, self.another_step, self.score_diff)
             self.total_reward += self.reward
             # Update replay memory: State, Action, Reward, Next State, Game Over
             self.replay_memory.append((self.state, game.get_idx_by_action(*self.action), self.reward, game.get_game_state(), game.is_game_over()))
             # Learn
             if self.steps % self.model_update_freq == 0 or game.is_game_over: # or done:
-                # last_loss = self.learn()
-                self.learn()
+                self.last_loss = self.learn()
             # Update target net
             if self.steps % self.target_network_update_freq == 0:
                 self.target_model.load_state_dict(self.model.state_dict())
@@ -282,6 +299,8 @@ class DQNAgent(DQN):
         loss = self.loss_funct(predicted_qs, updated_qs)
         loss.backward()
         self.optimizer.step()
+        
+        return loss.item()
         
     # def learn(self):
     #     if len(self.replay_memory) < self.min_replay_size:

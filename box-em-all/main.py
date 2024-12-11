@@ -70,19 +70,18 @@ def q_learning():
     if is_human:
         player_1 = player.HumanPlayer('HumanPlayer1')
         player_2 = player.QPlayer('QPlayer2', model=q_learning)
-        game = DotsAndBoxes(rows=board_size, cols=board_size, player_1=player_1, player_2=player_2)
+        game = DotsAndBoxes(board_sizes=board_size, player_1=player_1, player_2=player_2)
         game.play(print_board=is_human)
         return
     
     # Game
     player_1 = player.GreedyPlayer('GreedyPlayer1')
     player_2 = player.QAgent('QAgent2', model=q_learning, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min)
-    game = DotsAndBoxes(rows=board_size, cols=board_size, player_1=player_1, player_2=player_2)
+    game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
     verification_player_1 = player.GreedyPlayer('GreedyPlayer1')
     verification_player_2 = player.QPlayer('QPlayer2', model=q_learning)
-    verification_game = DotsAndBoxes(rows=board_size, cols=board_size, player_1=verification_player_1, player_2=verification_player_2)
+    verification_game = DotsAndBoxes(board_size=board_size, player_1=verification_player_1, player_2=verification_player_2)
     
-    # rewards = {}
     for episode in (pbar := tqdm(range(episodes if do_train else 1))):
         # Training
         pbar.set_description(f"Training Episode {episode}")
@@ -91,7 +90,7 @@ def q_learning():
             game.play()
     
         # Verification
-        if debug or ((episode + 1) % 1000 == 0): 
+        if debug or (episode > 0 and episode % 1000 == 0): 
             score = {'P1': 0, 'P2': 0, 'Tie': 0}
             for _ in range(verification_episodes):
                 verification_game.reset()
@@ -144,15 +143,15 @@ def q_learning():
 # ====================================================================================================
 def dqn():
     # Parameters
-    board_size = 3
+    board_size = 2
     episodes = 30000
     verification_episodes = 100
     ###
     alpha = 0.001  # TODO
-    gamma = 0.2  # TODO
+    gamma = 0.7  # TODO
     epsilon = 1.0  # TODO
-    epsilon_decay = 0.995  # TODO
-    epsilon_min = 0.1  # TODO
+    epsilon_decay = 0.92  # TODO
+    epsilon_min = 0.01  # TODO
     ###
     model_name_load = 'dqn_2_2'
     model_name_save = 'dqn_' + str(board_size)
@@ -189,35 +188,38 @@ def dqn():
     if is_human:
         player_1 = player.HumanPlayer('HumanPlayer1')
         player_2 = player.DQNPlayer('DQNPlayer2', model=model.DQN.load(model_name_load))
-        game = DotsAndBoxes(rows=board_size, cols=board_size, player_1=player_1, player_2=player_2)
+        game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
         game.play(print_board=is_human)
         return
      
     # Model
-    state_size = DotsAndBoxes.calc_game_state_size(board_size, board_size)
-    action_size = state_size
-    policy_net = model.DQN(state_size, action_size)
+    policy_net = model.DQN(board_size=board_size)
     policy_net.to(device)
     
     # Game
     player_1 = player.GreedyPlayer('GreedyPlayer1')
     # player_1 = player.DQNPlayer('DQNPlayer1', model=model.DQN.load("dqn3_20241205124848"))
     player_2 = player.DQNAgent('DQNAgent2', model=policy_net, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min)
-    game = DotsAndBoxes(rows=board_size, cols=board_size, player_1=player_1, player_2=player_2)
-    verification_player_1 = player.RandomPlayer('RandomPlayer1')
+    game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
+    # verification_player_1 = player.RandomPlayer('RandomPlayer1')
+    verification_player_1 = player.GreedyPlayer('GreedyPlayer1')
     # verification_player_1 = player_1
     verification_player_2 = player.DQNPlayer('DQNPlayer2', model=policy_net)
-    verification_game = DotsAndBoxes(rows=board_size, cols=board_size, player_1=verification_player_1, player_2=verification_player_2)
+    verification_game = DotsAndBoxes(board_size=board_size, player_1=verification_player_1, player_2=verification_player_2)
     
     # Training
+    rewards = []
+    losses = []
     for episode in (pbar := tqdm(range(episodes if do_train else 1))):
         pbar.set_description(f"Training Episode {episode}")
         policy_net.train()
         game.reset()
-        game.play()
+        game.play() 
+        rewards.append(game.player_2.total_reward)
+        losses.append(game.player_2.last_loss)
             
         # Verification
-        if debug or ((episode + 1) % 1000 == 0): 
+        if debug or (episode > 0 and episode % 1000 == 0): 
             score = {'P1': 0, 'P2': 0, 'Tie': 0}
             policy_net.eval()
             with torch.no_grad():
@@ -234,6 +236,9 @@ def dqn():
                         score['Tie'] += 1
         
             # Print verification score accross all verification episodes
+            print("--------------------------------------------------------------------------------")
+            print(f"Last Loss: {losses[episode]}")
+            print(f"Total Rewards: {rewards[episode]}")
             print("--------------------------------------------------------------------------------")
             print(f"Verification score in training episode {episode}: {score}")
             print(f"P1 ({verification_game.player_1.player_name}) Win: {round(score['P1'] / verification_episodes * 100, 2)}%")
