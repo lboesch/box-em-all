@@ -170,13 +170,14 @@ class QPlayer(QLearning):
 # DQN
 # ====================================================================================================
 class DQN(Player):
-    def __init__(self, player_name, model):
+    def __init__(self, player_name, model, device):
         super().__init__(player_name)
         self.model = model
+        self.device = device
 
     # Predict next action
     def next_action(self, game):
-        state = torch.tensor(game.get_game_state(), dtype=torch.float32)
+        state = torch.tensor(game.get_game_state(), dtype=torch.float32).to(self.device)
         q_values = self.model(state)
         # return game.get_action_by_idx(torch.argmax(q_values).item())  # TODO transform action to scalar value
         return max(game.get_random_available_actions(), key=lambda action: q_values[game.get_idx_by_action(*action)].item())
@@ -185,8 +186,8 @@ class DQN(Player):
 DQN Agent
 """
 class DQNAgent(DQN):
-    def __init__(self, player_name, model, alpha, gamma, epsilon, epsilon_decay, epsilon_min):
-        super().__init__(player_name, model)
+    def __init__(self, player_name, model, alpha, gamma, epsilon, epsilon_decay, epsilon_min, device):
+        super().__init__(player_name, model, device)
         self.optimizer = optim.Adam(self.model.parameters(), lr=alpha)
         self.loss_funct = nn.MSELoss()
         self.memory = deque(maxlen=2000)
@@ -196,6 +197,7 @@ class DQNAgent(DQN):
         self.epsilon = epsilon # Exploration rate
         self.epsilon_decay = epsilon_decay
         self.epsilon_min = epsilon_min
+        self.device = device
         
     def reset(self):
         super().reset()
@@ -236,11 +238,11 @@ class DQNAgent(DQN):
         for state, action, reward, next_state, done in minibatch:
             target = reward
             if not done:
-                target += self.gamma * torch.max(self.model(torch.tensor(next_state, dtype=torch.float32))) # TODO
-            target_f = self.model(torch.tensor(state, dtype=torch.float32)).detach().numpy()
+                target += self.gamma * torch.max(self.model(torch.tensor(next_state, dtype=torch.float32).to(self.device))) # TODO
+            target_f = self.model(torch.tensor(state, dtype=torch.float32).to(self.device))
             target_f[action] = target
             self.model.zero_grad()
-            loss = self.loss_funct(self.model(torch.tensor(state, dtype=torch.float32)), torch.tensor(target_f))
+            loss = self.loss_funct(self.model(torch.tensor(state, dtype=torch.float32).to(self.device)), torch.tensor(target_f))
             loss.backward()
             self.optimizer.step()
         # Decrease epsilon
@@ -251,8 +253,8 @@ class DQNAgent(DQN):
 DQN Player
 """
 class DQNPlayer(DQN):
-    def __init__(self, player_name, model):
-        super().__init__(player_name, model)
+    def __init__(self, player_name, model, device):
+        super().__init__(player_name, model, device=device)
         
     def reset(self):
         super().reset()

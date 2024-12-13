@@ -143,7 +143,7 @@ def q_learning():
 # ====================================================================================================
 def dqn():
     # Parameters
-    board_size = 3
+    board_size = 2
     epochs = 1000000
     verification_epochs = 100
     ###
@@ -188,7 +188,7 @@ def dqn():
     state_size = DotsAndBoxes.calc_game_state_size(board_size, board_size)
     action_size = state_size
     policy_net = model.DQN(state_size, action_size)
-    # TODO policy_net.to(device)
+    policy_net.to(device)
     # TODO policy and target net
     # target_net = model.DQN(state_size, action_size)
     # target_net.load_state_dict(policy_net.state_dict())
@@ -199,10 +199,10 @@ def dqn():
     
     # Game
     player_1 = player.GreedyPlayer('GreedyPlayer1')
-    player_2 = player.DQNAgent('DQNAgent2', model=policy_net, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min)
+    player_2 = player.DQNAgent('DQNAgent2', model=policy_net, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min, device=device)
     game = DotsAndBoxes(rows=board_size, cols=board_size, player_1=player_1, player_2=player_2)
     verification_player_1 = player.RandomPlayer('RandomPlayer1')
-    verification_player_2 = player.DQNPlayer('DQNPlayer2', model=policy_net)
+    verification_player_2 = player.DQNPlayer('DQNPlayer2', model=policy_net, device=device)
     verification_game = DotsAndBoxes(rows=board_size, cols=board_size, player_1=verification_player_1, player_2=verification_player_2)
     
     # Training
@@ -216,7 +216,7 @@ def dqn():
             player_2.optimize(32)
             
         # Verification
-        if debug or ((epoch + 1) % 1000 == 0): 
+        if debug or ((epoch + 1) % 10000 == 0): 
             score = {'P1': 0, 'P2': 0, 'Tie': 0}
             with torch.no_grad():
                 policy_net.eval()
