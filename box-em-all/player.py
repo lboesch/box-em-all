@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from collections import deque
-from game import DotsAndBoxes
 import copy
 import model
 import numpy as np
@@ -16,44 +15,58 @@ class Player(ABC):
     def __init__(self, player_name: str):
         self.player_number = None
         self.player_name = player_name
+        self.step_count = 0
         self.reset()
 
-    @abstractmethod
     def reset(self):
         self.player_score = 0  # TODO move to game?
-
+        self.step = None
+        self.step_hist = []
+        
     @abstractmethod
     def act(self, game):
         pass
- 
-    def review_game(self, game):
-        pass
     
+    def finalize_step(self, game):
+        pass
+
+"""
+Agent Base Class
+"""
 # class Agent(Player):
 #     def __init__(self, player_name, policy):
 #         super().__init__(player_name)
 #         self.policy = policy
     
-#     def reset(self):
-#         super().reset()
-    
 #     def act(self, game):
 #         action = self.policy.next_action(game)
 #         another_step, _ = game.step(*action)
 #         return another_step
-    
+
+"""
+Learner Base Class
+"""
+# class Learner(Player):
+#     def __init__(self, player_name, policy):
+#         super().__init__(player_name)
+#         self.policy = policy
+        
+#     @abstractmethod
+#     def learn(self, game):
+#         pass
+
+# ====================================================================================================
+# Players
+# ====================================================================================================
 """
 Human Player
 """
 class HumanPlayer(Player):
-    def reset(self):
-        super().reset()
-    
     def act(self, game):
         # Let the human player choose an action using input
         try:
             action = map(int, input("Enter row and column for your action (e.g., 0 1): ").split())
-            another_step, _ = game.step(*action)
+            another_step = game.step(*action)
             return another_step
         except ValueError:
             print("Invalid input. Enter two integers separated by a space.")
@@ -67,12 +80,9 @@ class RandomPlayer(Player):
         super().__init__(player_name)
         self.model = model.Random()
     
-    def reset(self):
-        super().reset()
-    
     def act(self, game):
         action = self.model.next_action(game)
-        another_step, _ = game.step(*action)
+        another_step = game.step(*action)
         return another_step
         
 """
@@ -83,12 +93,9 @@ class GreedyPlayer(Player):
         super().__init__(player_name)
         self.model = model.Greedy()
     
-    def reset(self):
-        super().reset()
-    
     def act(self, game):
         action = action = self.model.next_action(game)
-        another_step, _ = game.step(*action)
+        another_step = game.step(*action)
         return another_step
 
 # ====================================================================================================
@@ -112,68 +119,52 @@ class QAgent(QLearning):
         self.epsilon_decay = epsilon_decay
         self.epsilon_min = epsilon_min
         self.epsilon_update_freq = 100
-        #
-        self.steps = 0
         
     def reset(self):
         super().reset()
-        self.state = None
-        self.action = None
-        self.boxes = None
-        self.another_step = None
-        self.reward = 0
         self.total_reward = 0
 
     def act(self, game):
-        if self.state is not None:  # TODO hack -> deque, dataclass, SimpleNamespace?
-            self.reward = game.calc_reward(self.boxes, self.another_step)
-            self.total_reward += self.reward
-            # Update Q-table
-            self.update_q_table(self.state, self.action, self.reward, game)
-        if not game.is_game_over():
-            self.state = game.get_game_state()                 
-            # Epsilon-greedy action selection
-            if random.uniform(0, 1) < self.epsilon:
-                # Exploration
-                self.action = random.choice(game.get_available_actions())
-            else:
-                # Exploitation
-                self.action = self.model.next_action(game)
-            self.another_step, self.boxes = game.step(*self.action)
-            self.steps += 1
-            # Update epsilon
-            if self.steps % self.epsilon_update_freq == 0:
-                self.update_epsilon()
-            return self.another_step
+        # Epsilon-greedy action selection
+        if random.uniform(0, 1) < self.epsilon:
+            # Exploration
+            self.action = random.choice(game.get_available_actions())
         else:
-            return False
+            # Exploitation
+            self.action = self.model.next_action(game)
+        # Step
+        another_step = game.step(*self.action)
+        return another_step
     
-    def review_game(self, game):
-        self.act(game)
-    
+    def finalize_step(self, game):
+        # Update total reward
+        self.total_reward += self.step.reward
+        # Update Q-table
+        self.learn(game)
+        # Update epsilon
+        if self.step_count % self.epsilon_update_freq == 0:
+            self.update_epsilon()
+        
     # Update epsilon (decrease exploration)
     def update_epsilon(self):
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
     
     # Update Q-table (Q-learning algorithm)
-    def update_q_table(self, state, action, reward, game):
-        old_q_value = self.model.get_q_value(state, action)
-        max_future_q = max([self.model.get_q_value(game.get_game_state(), action) for action in game.get_available_actions()], default=0)
+    def learn(self, game):
+        old_q_value = self.model.get_q_value(self.step.state, self.step.action)
+        max_future_q = max([self.model.get_q_value(self.step.next_state, action) for action in game.get_available_actions()], default=0)
         # Formula: Q(s,a) = Q(s,a) + α * (r + γ * max(Q(s',a')) - Q(s,a))
-        new_q_value = old_q_value + self.alpha * (reward + self.gamma * max_future_q - old_q_value)  # TODO
-        self.model.update_q_value(state, action, new_q_value)
+        new_q_value = old_q_value + self.alpha * (self.step.reward + self.gamma * max_future_q - old_q_value)  # TODO
+        self.model.update_q_value(self.step.state, self.step.action, new_q_value)
     
 """
 Q-learning Player
 """
 class QPlayer(QLearning):
-    def reset(self):
-        super().reset()
-
     def act(self, game):
         action = self.model.next_action(game)
-        another_step, _ = game.step(*action)
+        another_step = game.step(*action)
         return another_step
                 
 # ====================================================================================================
@@ -215,51 +206,37 @@ class DQNAgent(DQN):
         self.replay_memory = deque(maxlen=self.max_replay_size)
         self.model_update_freq = 4
         self.target_network_update_freq = 100
-        #
-        self.steps = 0
         
     def reset(self):
         super().reset()
-        self.state = None
-        self.action = None
-        self.boxes = None
-        self.another_step = None
-        self.score_diff = 0
-        self.reward = 0
         self.total_reward = 0
         self.last_loss = 0
         
     def act(self, game):
-        if self.state is not None:  # TODO hack -> deque, dataclass, SimpleNamespace?
-            self.reward = game.calc_reward(self.boxes, self.another_step, self.score_diff)
-            self.total_reward += self.reward
-            # Update replay memory: State, Action, Reward, Next State, Game Over
-            self.replay_memory.append((self.state, game.get_idx_by_action(*self.action), self.reward, game.get_game_state(), game.is_game_over()))
-            # Learn
-            if self.steps % self.model_update_freq == 0 or game.is_game_over: # or done:
-                self.last_loss = self.learn()
-            # Update target net
-            if self.steps % self.target_network_update_freq == 0:
-                self.target_model.load_state_dict(self.model.state_dict())
-        if not game.is_game_over():
-            self.state = game.get_game_state()
-            if np.random.rand() <= self.epsilon:
-                self.action = random.choice(game.get_available_actions())  # TODO
-            else:
-                self.action = self.model.next_action(game)
-            self.another_step, self.boxes = game.step(*self.action)
-            self.steps += 1
-            self.score_diff = game.get_player_score_diff()
-            # Update epsilon
-            if self.steps % self.epsilon_update_freq == 0:
-                self.update_epsilon()
-            return self.another_step
+        # Action
+        if np.random.rand() <= self.epsilon:
+            self.action = random.choice(game.get_available_actions())
         else:
-            return False
+            self.action = self.model.next_action(game)
+        # Step
+        self.another_step = game.step(*self.action)
+        return self.another_step
     
-    def review_game(self, game):
-        self.act(game)
-        
+    def finalize_step(self, game):
+        # Update total reward
+        self.total_reward += self.step.reward
+        # Add step to replay memory
+        self.replay_memory.append(self.step)
+        # Learn
+        if self.step_count % self.model_update_freq == 0:
+            self.last_loss = self.learn()
+        # Update target net
+        if self.step_count % self.target_network_update_freq == 0:
+            self.target_model.load_state_dict(self.model.state_dict())
+        # Update epsilon
+        if self.step_count % self.epsilon_update_freq == 0:
+            self.update_epsilon()
+
     # Update epsilon (decrease exploration)
     def update_epsilon(self):
         if self.epsilon > self.epsilon_min:
@@ -272,25 +249,25 @@ class DQNAgent(DQN):
         
         minibatch = random.sample(self.replay_memory, self.batch_size)
         
-        initial_states = np.array([transition[0] for transition in minibatch])
+        initial_states = np.array([transition.state for transition in minibatch])
         initial_qs = self.model(torch.tensor(initial_states, dtype=torch.float32, device=self.device))
 
-        next_states = np.array([transition[3] for transition in minibatch])
+        next_states = np.array([transition.next_state for transition in minibatch])
         target_qs = self.target_model(torch.tensor(next_states, dtype=torch.float32, device=self.device))
 
         states = torch.zeros((self.batch_size, self.model.state_size), dtype=torch.float32, device=self.device)
         updated_qs = torch.zeros((self.batch_size, self.model.action_size), dtype=torch.float32, device=self.device)
 
-        for index, (state, action, reward, next_state, game_over) in enumerate(minibatch):
-            if not game_over:
-                max_future_q = reward + self.gamma * torch.max(target_qs[index])
+        for index, step in enumerate(minibatch):
+            if not step.game_over:
+                max_future_q = step.reward + self.gamma * torch.max(target_qs[index])
             else:
-                max_future_q = reward
+                max_future_q = step.reward
 
             updated_qs_sample = initial_qs[index]
-            updated_qs_sample[action] = max_future_q
+            updated_qs_sample[step.action] = max_future_q
 
-            states[index] = torch.tensor(state, dtype=torch.float32, device=self.device)
+            states[index] = torch.tensor(step.state, dtype=torch.float32, device=self.device)
             updated_qs[index] = updated_qs_sample
 
         predicted_qs = self.model(states)
@@ -322,10 +299,7 @@ class DQNAgent(DQN):
 DQN Player
 """
 class DQNPlayer(DQN):
-    def reset(self):
-        super().reset()
-        
     def act(self, game):
         action = self.model.next_action(game)
-        another_step, _ = game.step(*action)
+        another_step = game.step(*action)
         return another_step

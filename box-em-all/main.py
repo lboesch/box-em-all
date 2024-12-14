@@ -4,8 +4,6 @@ import model
 import numpy as np
 import player
 import torch
-import torch.optim as optim
-import torch.nn.functional as F
 from tqdm import tqdm
 import wandb
 
@@ -13,35 +11,19 @@ import wandb
 # Global Parameters
 # ====================================================================================================
 debug = False
+use_gpu = False
 is_human = False
 do_train = True
 save_model = True
 use_wandb = False
 wandb_project = "box-em-all"
-if not is_human and do_train and use_wandb:
-    wandb.login()
-
+    
 # ====================================================================================================
-# Q-learning
+# Weight & Biases
 # ====================================================================================================
-def q_learning():
-    # Parameters
-    extend_q_table = False
-    board_size = 3
-    episodes = 100000
-    verification_episodes = 100
-    ###
-    alpha = 0.1  # TODO
-    gamma = 0.9  # TODO
-    epsilon = 1.0  # TODO
-    epsilon_decay = 0.995  # TODO
-    epsilon_min = 0.1  # TODO
-    ###
-    model_name_load = 'q_table_2_2'
-    model_name_save = 'q_learning_' + str(board_size)
-
-    # Weights & Biases
+def init_wandb(board_size, alpha, gamma, epsilon, epsilon_decay, epsilon_min, episodes, verification_episodes, game_state, tags):
     if not is_human and do_train and use_wandb:
+        wandb.login()
         run = wandb.init(
             # Set the project where this run will be logged
             project=wandb_project,
@@ -55,10 +37,43 @@ def q_learning():
                 "epsilon_min": epsilon_min,
                 "episodes": episodes,
                 "verification_episodes": verification_episodes,
-                "game-state": "with-both-players",
+                "game-state": game_state,
             },
-            tags=["q-learning", "dots-and-boxes"]
+            tags=["dots-and-boxes"].append(tags)
         )
+
+# ====================================================================================================
+# Q-learning
+# ====================================================================================================
+def q_learning():
+    # Parameters
+    extend_q_table = False
+    board_size = 2
+    episodes = 1000000
+    verification_episodes = 100
+    ###
+    alpha = 0.1  # TODO
+    gamma = 0.9  # TODO
+    epsilon = 1.0  # TODO
+    epsilon_decay = 0.995  # TODO
+    epsilon_min = 0.1  # TODO
+    ###
+    model_name_load = 'q_table_2_2'
+    model_name_save = 'q_learning_' + str(board_size)
+
+    # Weights & Biases
+    init_wandb(
+        board_size=board_size,
+        alpha=alpha,
+        gamma=gamma,
+        epsilon=epsilon,
+        epsilon_decay=epsilon_decay,
+        epsilon_min=epsilon_min,
+        episodes=episodes,
+        verification_episodes=verification_episodes,
+        game_state="with-both-players",
+        tags=["q-learning"]
+    )
     
     # Model
     if do_train:
@@ -78,7 +93,8 @@ def q_learning():
     player_1 = player.GreedyPlayer('GreedyPlayer1')
     player_2 = player.QAgent('QAgent2', model=q_learning, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min)
     game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
-    verification_player_1 = player.GreedyPlayer('GreedyPlayer1')
+    # verification_player_1 = player.GreedyPlayer('GreedyPlayer1')
+    verification_player_1 = player.RandomPlayer('RandomPlayer1')
     verification_player_2 = player.QPlayer('QPlayer2', model=q_learning)
     verification_game = DotsAndBoxes(board_size=board_size, player_1=verification_player_1, player_2=verification_player_2)
     
@@ -144,46 +160,48 @@ def q_learning():
 def dqn():
     # Parameters
     board_size = 2
-    episodes = 30000
+    episodes = 100000
     verification_episodes = 100
     ###
     alpha = 0.001  # TODO
-    gamma = 0.7  # TODO
+    gamma = 0.4  # TODO
     epsilon = 1.0  # TODO
-    epsilon_decay = 0.92  # TODO
-    epsilon_min = 0.01  # TODO
+    epsilon_decay = 0.995  # TODO
+    epsilon_min = 0.1  # TODO
     ###
     model_name_load = 'dqn_2_2'
     model_name_save = 'dqn_' + str(board_size)
     
     # Weights & Biases
-    if not is_human and do_train and use_wandb:
-        run = wandb.init(
-            # Set the project where this run will be logged
-            project=wandb_project,
-            # Track hyperparameters and run metadata
-            config={
-                "board_size": board_size,
-                "alpha": alpha,
-                "gamma": gamma,
-                "epsilon": epsilon,
-                "epsilon_decay": epsilon_decay,
-                "epsilon_min": epsilon_min,
-                "episodes": episodes,
-                "verification_episodes": verification_episodes,
-                "game-state": "with-both-players",
-            },
-            tags=["dqn", "dots-and-boxes"]
-        )
-
+    init_wandb(
+        board_size=board_size,
+        alpha=alpha,
+        gamma=gamma,
+        epsilon=epsilon,
+        epsilon_decay=epsilon_decay,
+        epsilon_min=epsilon_min,
+        episodes=episodes,
+        verification_episodes=verification_episodes,
+        game_state="with-both-players",
+        tags=["dqn"]
+    )
+    
     # Device
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-    # elif torch.backends.mps.is_available():  # TODO very slow on Apple M1
-    #     device = torch.device("mps")
+    if use_gpu:
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
+        elif torch.backends.mps.is_available():  # TODO very slow on Apple M1
+            device = torch.device("mps")
     else:
         device = torch.device("cpu")
         
+    # Model
+    if do_train:
+        policy_net = model.DQN(board_size=board_size)
+    else:
+        policy_net = model.DQN.load(model_name_load)
+    policy_net.to(device)
+    
     # Human Player
     if is_human:
         player_1 = player.HumanPlayer('HumanPlayer1')
@@ -191,18 +209,14 @@ def dqn():
         game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
         game.play(print_board=is_human)
         return
-     
-    # Model
-    policy_net = model.DQN(board_size=board_size)
-    policy_net.to(device)
     
     # Game
     player_1 = player.GreedyPlayer('GreedyPlayer1')
     # player_1 = player.DQNPlayer('DQNPlayer1', model=model.DQN.load("dqn3_20241205124848"))
     player_2 = player.DQNAgent('DQNAgent2', model=policy_net, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min)
     game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
-    # verification_player_1 = player.RandomPlayer('RandomPlayer1')
-    verification_player_1 = player.GreedyPlayer('GreedyPlayer1')
+    verification_player_1 = player.RandomPlayer('RandomPlayer1')
+    # verification_player_1 = player.GreedyPlayer('GreedyPlayer1')
     # verification_player_1 = player_1
     verification_player_2 = player.DQNPlayer('DQNPlayer2', model=policy_net)
     verification_game = DotsAndBoxes(board_size=board_size, player_1=verification_player_1, player_2=verification_player_2)
@@ -239,6 +253,8 @@ def dqn():
             print("--------------------------------------------------------------------------------")
             print(f"Last Loss: {losses[episode]}")
             print(f"Total Rewards: {rewards[episode]}")
+            # print(f"Last Loss: {sum(losses)/episodes}")
+            # print(f"Total Rewards: {sum(rewards)/episodes}")
             print("--------------------------------------------------------------------------------")
             print(f"Verification score in training episode {episode}: {score}")
             print(f"P1 ({verification_game.player_1.player_name}) Win: {round(score['P1'] / verification_episodes * 100, 2)}%")
@@ -262,5 +278,5 @@ def dqn():
 # Start
 # ====================================================================================================
 if __name__ == "__main__":
-    # q_learning()  # Q-learning
-    dqn()  # Deep Q-network
+    q_learning()  # Q-learning
+    # dqn()  # Deep Q-network

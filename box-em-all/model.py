@@ -2,13 +2,11 @@ from abc import ABC, abstractmethod
 from collections import namedtuple, deque
 from datetime import datetime
 from game import DotsAndBoxes
-import numpy as np
 import os
 import pickle
 import random
 import torch
 import torch.nn as nn
-import torch.optim as optim
 
 """
 Policy Base Class
@@ -78,7 +76,7 @@ class QLearning(Policy):
         
     # Predict next action
     def next_action(self, game):
-        return max(game.get_random_available_actions(), key=lambda action: self.get_q_value(game.get_game_state(), action))  # TODO what if multiple max?
+        return max(game.get_random_available_actions(), key=lambda action: self.get_q_value(game.get_game_state(), game.get_idx_by_action(*action)))  # TODO game.get_idx_by_action()
     
 # ====================================================================================================
 # DQN
@@ -113,15 +111,18 @@ class DQNBase(nn.Module, Policy):
 class DQN(DQNBase):
     def __init__(self, board_size):
         super().__init__(board_size)
-        self.fc1 = nn.Linear(self.state_size, 100)
-        self.fc2 = nn.Linear(100, 100)
-        self.fc3 = nn.Linear(100, 100)
-        self.fc4 = nn.Linear(100, self.action_size)
+        self.fc1 = nn.Linear(self.state_size, 64)
+        self.fc2 = nn.Linear(64, 64)
+        self.fc3 = nn.Linear(64, 64)
+        self.fc4 = nn.Linear(64, self.action_size)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
         x = torch.relu(self.fc2(x))
         x = torch.relu(self.fc3(x))
+        # x = torch.tanh(self.fc1(x))
+        # x = torch.tanh(self.fc2(x))
+        # x = torch.tanh(self.fc3(x))
         return self.fc4(x)
     
     # Predict next action
