@@ -144,6 +144,29 @@ class DotsAndBoxes:
         game_over: bool = None
         reward: int = None
         
+        # Calculate reward
+        def calc_reward(self, game):
+            reward = 0
+            if self.game_over:
+                # Winning a game
+                if self.next_state_score_diff > 0:
+                    reward += 1
+                # Loosing a game
+                elif self.next_state_score_diff < 0:
+                    reward -= 1
+            else:
+                # Box completed
+                reward += 0.2 * len(self.boxes[4])
+                # Difference between player scores
+                # reward += 0.1 * (step.next_state_score_diff - step.state_score_diff)
+                if self.another_step:
+                    # Chance to complete box with next action
+                    reward += 0.1 * len(self.boxes[3])
+                else:
+                    # Giving advantage to opponent
+                    reward -= 0.2 * len(self.boxes[3])
+            self.reward = reward
+        
     # Perform a step
     def step(self, row, col):
         if self.is_valid_action(row, col):
@@ -166,10 +189,6 @@ class DotsAndBoxes:
             else:
                 another_step = False  # Box not completed -> switch player
             step.another_step = another_step
-            # Finalize step if current player has another step or game is finished
-            # Otherwise, step will be finalized after player switch
-            if another_step or self.is_game_over():
-                self.finalize_step()
         else:
             print("Invalid action. Try again.")
             another_step = True  # Invalid action -> another step TODO create custom exception
@@ -183,37 +202,13 @@ class DotsAndBoxes:
             step.next_state = self.get_game_state()  # TODO
             step.next_state_score_diff = self.get_player_score_diff()
             step.game_over = self.is_game_over()
-            step.reward = self.calc_reward()
+            step.calc_reward(self)
             # Add step to history
             self.current_player.step_hist.append(step)
             # Let current player finalize the step
             self.current_player.finalize_step(self)
             # Reset step
             self.current_player.step = None
-               
-    # Calculate reward
-    def calc_reward(self):
-        reward = 0
-        step = self.current_player.step
-        if step.game_over:
-            # Winning a game
-            if self.current_player.player_score > self.opponent_player.player_score:
-                reward += 1
-            # Loosing a game
-            elif self.current_player.player_score < self.opponent_player.player_score:
-                reward -= 1
-        else:
-            # Box completed
-            reward += 0.2 * len(step.boxes[4])
-            # Difference between player scores
-            # reward += 0.1 * (step.next_state_score_diff - step.state_score_diff)
-            if step.another_step:
-                # Chance to complete box with next action
-                reward += 0.1 * len(step.boxes[3])
-            else:
-                # Giving advantage to opponent
-                reward -= 0.2 * len(step.boxes[3])
-        return reward
     
     """
     Players
@@ -225,8 +220,6 @@ class DotsAndBoxes:
     # Switch player
     def switch_player(self):
         self.current_player, self.opponent_player = self.opponent_player, self.current_player
-        # Finalize step
-        self.finalize_step()
         
     """
     Game
@@ -274,13 +267,16 @@ class DotsAndBoxes:
                 print("--------------------------------------------------------------------------------")
             # Player action
             another_step = self.current_player.act(self)
-            # Game over: Let the opponent review the game and then exit
-            if self.is_game_over():
-                self.switch_player()
-                break
             # Switch player
             if not another_step:
                 self.switch_player()
+            # Finalize step
+            self.finalize_step()
+            # Game over
+            if self.is_game_over():
+                self.switch_player()
+                self.finalize_step()
+                break
 
         # Game Over
         if print_board:
