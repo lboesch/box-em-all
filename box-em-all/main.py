@@ -49,14 +49,14 @@ def q_learning():
     # Parameters
     extend_q_table = False
     board_size = 2
-    episodes = 1000000
+    episodes = 30000
     verification_episodes = 100
     ###
-    alpha = 0.1  # TODO
-    gamma = 0.9  # TODO
+    alpha = 0.6  # TODO
+    gamma = 0.5  # TODO
     epsilon = 1.0  # TODO
     epsilon_decay = 0.995  # TODO
-    epsilon_min = 0.1  # TODO
+    epsilon_min = 0.01  # TODO
     ###
     model_name_load = 'q_table_2_2'
     model_name_save = 'q_learning_' + str(board_size)
@@ -93,8 +93,8 @@ def q_learning():
     player_1 = player.GreedyPlayer('GreedyPlayer1')
     player_2 = player.QAgent('QAgent2', model=q_learning, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min)
     game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
-    # verification_player_1 = player.GreedyPlayer('GreedyPlayer1')
-    verification_player_1 = player.RandomPlayer('RandomPlayer1')
+    verification_player_1 = player.GreedyPlayer('GreedyPlayer1')
+    # verification_player_1 = player.RandomPlayer('RandomPlayer1')
     verification_player_2 = player.QPlayer('QPlayer2', model=q_learning)
     verification_game = DotsAndBoxes(board_size=board_size, player_1=verification_player_1, player_2=verification_player_2)
     
@@ -164,7 +164,7 @@ def dqn():
     verification_episodes = 100
     ###
     alpha = 0.001  # TODO
-    gamma = 0.4  # TODO
+    gamma = 0.2  # TODO
     epsilon = 1.0  # TODO
     epsilon_decay = 0.995  # TODO
     epsilon_min = 0.1  # TODO
@@ -197,7 +197,8 @@ def dqn():
         
     # Model
     if do_train:
-        policy_net = model.DQN(board_size=board_size)
+        # policy_net = model.DQN(board_size=board_size)
+        policy_net = model.DQNConv(board_size=board_size)
     else:
         policy_net = model.DQN.load(model_name_load)
     policy_net.to(device)
@@ -205,18 +206,18 @@ def dqn():
     # Human Player
     if is_human:
         player_1 = player.HumanPlayer('HumanPlayer1')
-        player_2 = player.DQNPlayer('DQNPlayer2', model=model.DQN.load(model_name_load))
+        player_2 = player.DQNPlayer('DQNPlayer2', model=model.DQN.load("dqn_2_20241220085750"))
         game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
         game.play(print_board=is_human)
         return
     
     # Game
-    player_1 = player.GreedyPlayer('GreedyPlayer1')
-    # player_1 = player.DQNPlayer('DQNPlayer1', model=model.DQN.load("dqn3_20241205124848"))
+    # player_1 = player.GreedyPlayer('GreedyPlayer1')
+    player_1 = player.QPlayer('QPlayer1', model=model.QLearning.load("q_learning_2_20241215001739"))
     player_2 = player.DQNAgent('DQNAgent2', model=policy_net, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min)
     game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
-    verification_player_1 = player.RandomPlayer('RandomPlayer1')
-    # verification_player_1 = player.GreedyPlayer('GreedyPlayer1')
+    verification_player_1 = player.GreedyPlayer('GreedyPlayer1')
+    # verification_player_1 = player.RandomPlayer('RandomPlayer1')
     # verification_player_1 = player_1
     verification_player_2 = player.DQNPlayer('DQNPlayer2', model=policy_net)
     verification_game = DotsAndBoxes(board_size=board_size, player_1=verification_player_1, player_2=verification_player_2)
@@ -278,5 +279,5 @@ def dqn():
 # Start
 # ====================================================================================================
 if __name__ == "__main__":
-    q_learning()  # Q-learning
-    # dqn()  # Deep Q-network
+    # q_learning()  # Q-learning
+    dqn()  # Deep Q-network

@@ -156,7 +156,7 @@ class DotsAndBoxes:
                     reward -= 1
             else:
                 # Box completed
-                reward += 0.2 * len(self.boxes[4])
+                reward += 0.1 * len(self.boxes[4])
                 # Difference between player scores
                 # reward += 0.1 * (step.next_state_score_diff - step.state_score_diff)
                 if self.another_step:
@@ -164,7 +164,7 @@ class DotsAndBoxes:
                     reward += 0.1 * len(self.boxes[3])
                 else:
                     # Giving advantage to opponent
-                    reward -= 0.2 * len(self.boxes[3])
+                    reward -= 0.1 * len(self.boxes[3])
             self.reward = reward
         
     # Perform a step
@@ -173,7 +173,7 @@ class DotsAndBoxes:
             self.current_player.step_count += 1
             # Create new step
             step = self.current_player.step = self.Step()
-            step.state = self.get_game_state()  # TODO
+            step.state = self.board.copy()  # TODO
             step.state_score_diff = self.get_player_score_diff()
             step.action = self.get_idx_by_action(row, col)  # TODO
             # Perform step
@@ -199,7 +199,7 @@ class DotsAndBoxes:
         step = self.current_player.step
         if step:
             # Finalize step
-            step.next_state = self.get_game_state()  # TODO
+            step.next_state = self.board.copy()  # TODO
             step.next_state_score_diff = self.get_player_score_diff()
             step.game_over = self.is_game_over()
             step.calc_reward(self)
@@ -235,9 +235,15 @@ class DotsAndBoxes:
     def calc_game_state_size(board_size):
         return 2 * (board_size * (board_size + 1))
     
-    # Get current game state as flattened vector
-    def get_game_state(self):
-        return np.append(self.board[1::2, ::2] != ' ', self.board[::2, 1::2] != ' ').flatten().astype(int)
+    # Get current game state as 1d array
+    @staticmethod
+    def get_game_state(board):
+        return np.append(board[1::2, ::2] != ' ', board[::2, 1::2] != ' ').flatten().astype(int)
+    
+    # Get current game state as 2d array
+    @staticmethod
+    def get_game_state_2d(board):
+        return np.where((board == "-") | (board == "|"), 1, 0).astype(int)
     
     # Print the board
     def print_board(self):

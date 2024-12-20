@@ -76,7 +76,7 @@ class QLearning(Policy):
         
     # Predict next action
     def next_action(self, game):
-        return max(game.get_random_available_actions(), key=lambda action: self.get_q_value(game.get_game_state(), game.get_idx_by_action(*action)))  # TODO game.get_idx_by_action()
+        return max(game.get_random_available_actions(), key=lambda action: self.get_q_value(DotsAndBoxes.get_game_state(game.board), game.get_idx_by_action(*action)))  # TODO game.get_idx_by_action()
     
 # ====================================================================================================
 # DQN
@@ -86,11 +86,17 @@ class QLearning(Policy):
 class DQNBase(nn.Module, Policy):
     def __init__(self, board_size):
         super().__init__()
+        self.board_size = board_size
         self.state_size = self.action_size = DotsAndBoxes.calc_game_state_size(board_size)
 
     # Get device
     def get_device(self):
         return next(self.parameters()).device
+    
+    # Get state
+    @abstractmethod
+    def get_state(self):
+        pass
     
     # Writing the object to a file
     def save(self, name):
@@ -108,56 +114,78 @@ class DQNBase(nn.Module, Policy):
         with open(filename, 'rb') as file:
             return torch.load(file, weights_only=False)
 
+'''
+DQN without convolutional layers
+'''
 class DQN(DQNBase):
     def __init__(self, board_size):
         super().__init__(board_size)
-        self.fc1 = nn.Linear(self.state_size, 64)
-        self.fc2 = nn.Linear(64, 64)
-        self.fc3 = nn.Linear(64, 64)
-        self.fc4 = nn.Linear(64, self.action_size)
-
+        self.state_shape = (self.state_size,)
+        self.net = nn.Sequential(
+            nn.Linear(self.state_size, 128),
+            nn.ReLU(),
+            nn.Linear(128, 128),
+            nn.ReLU(),
+            nn.Linear(128, self.action_size)
+        )
+        
     def forward(self, x):
-        x = torch.relu(self.fc1(x))
-        x = torch.relu(self.fc2(x))
-        x = torch.relu(self.fc3(x))
-        # x = torch.tanh(self.fc1(x))
-        # x = torch.tanh(self.fc2(x))
-        # x = torch.tanh(self.fc3(x))
-        return self.fc4(x)
+        return self.net(x)
+    
+    def get_state(self, board):
+        return DotsAndBoxes.get_game_state(board)
     
     # Predict next action
     def next_action(self, game):
-        state = torch.tensor(game.get_game_state(), dtype=torch.float32, device=self.get_device())
+        state = torch.tensor(self.get_state(game.board), dtype=torch.float, device=self.get_device())
         q_values = self(state)
         # return game.get_action_by_idx(torch.argmax(q_values).item())  # TODO transform action to scalar value
         return max(game.get_random_available_actions(), key=lambda action: q_values[game.get_idx_by_action(*action)].item())
 
-# TODO       
-# class DQNCNN(DQNBase):
-#     def __init__(self, board_size):
-#         super().__init__(board_size)
-#         self.conv = nn.Sequential(
-#             nn.Conv2d(2, 32, kernel_size=3, stride=1, padding=1),
-#             nn.ReLU(),
-#             nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
-#             nn.ReLU(),
-#         )
-#         self.fc = nn.Sequential(
-#             nn.Linear(64 * (board_size + 1) * board_size, 128),
-#             nn.ReLU(),
-#             nn.Linear(128, self.action_size)  # Q-values for all actions
-#         )
+'''
+DQN with convolutional layers
+'''
+class DQNConv(DQNBase):
+    def __init__(self, board_size):
+        super().__init__(board_size)
+        self.state_shape = (2 * board_size + 1, 2 * board_size + 1)
+        self.input_channels = 1
+        self.conv_layers = nn.Sequential(
+            nn.Conv2d(self.input_channels, 32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Flatten()
+        )
+        self.fc_input_size = self._get_conv_output_size()  # Calculate the size of the input to the first fully connected layer
+        self.fc_layers = nn.Sequential(
+            nn.Linear(self.fc_input_size, 128),
+            nn.ReLU(),
+            nn.Linear(128, self.action_size)  # Q-values for all actions
+        )
+        self.net = nn.Sequential(
+            self.conv_layers,
+            self.fc_layers
+        )
+        
+    def _get_conv_output_size(self):
+        input = torch.rand(1, self.input_channels, *self.state_shape)
+        output = self.conv_layers(input)
+        output_size = output.data.view(1, -1).size(1)
+        return output_size
 
-#     def forward(self, x):
-#         x = self.conv(x)
-#         x = x.view(x.size(0), -1)
-#         return self.fc(x)
+    def forward(self, x):
+        x = x.view(x.shape[0], self.input_channels, x.shape[1], x.shape[2])  # Batch size, channels, height, width
+        return self.net(x)
     
-#     # Predict next action
-#     def next_action(self, game):
-#         state = torch.tensor(game.get_game_state(), dtype=torch.float32, device=self.get_device())
-#         q_values = self(state)
-#         return max(game.get_random_available_actions(), key=lambda action: q_values[game.get_idx_by_action(*action)].item())
+    def get_state(self, board):
+        return DotsAndBoxes.get_game_state_2d(board)
+    
+    # Predict next action
+    def next_action(self, game):
+        state = torch.tensor(self.get_state(game.board), dtype=torch.float, device=self.get_device())
+        q_values = torch.squeeze(self(state.unsqueeze(0)))
+        return max(game.get_random_available_actions(), key=lambda action: q_values[game.get_idx_by_action(*action)].item())
 
 # ====================================================================================================
 # Replay memory

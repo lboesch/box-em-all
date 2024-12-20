@@ -188,8 +188,8 @@ class DQNAgent(DQN):
         self.target_model.to(self.device)
         self.target_model.eval()
         # self.optimizer = optim.Adam(self.model.parameters(), lr=alpha)
-        # self.optimizer = optim.AdamW(self.model.parameters(), lr=alpha)
-        self.optimizer = optim.SGD(self.model.parameters(), lr=alpha)
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=alpha)
+        # self.optimizer = optim.SGD(self.model.parameters(), lr=alpha)
         self.loss_funct = nn.MSELoss()
         # self.loss_funct = nn.SmoothL1Loss()
         # Hyperparameters
@@ -249,14 +249,14 @@ class DQNAgent(DQN):
         
         minibatch = random.sample(self.replay_memory, self.batch_size)
         
-        initial_states = np.array([transition.state for transition in minibatch])
-        initial_qs = self.model(torch.tensor(initial_states, dtype=torch.float32, device=self.device))
+        initial_states = np.array([self.model.get_state(transition.state) for transition in minibatch])
+        initial_qs = self.model(torch.tensor(initial_states, dtype=torch.float, device=self.device))
 
-        next_states = np.array([transition.next_state for transition in minibatch])
-        target_qs = self.target_model(torch.tensor(next_states, dtype=torch.float32, device=self.device))
+        next_states = np.array([self.target_model.get_state(transition.next_state) for transition in minibatch])
+        target_qs = self.target_model(torch.tensor(next_states, dtype=torch.float, device=self.device))
 
-        states = torch.zeros((self.batch_size, self.model.state_size), dtype=torch.float32, device=self.device)
-        updated_qs = torch.zeros((self.batch_size, self.model.action_size), dtype=torch.float32, device=self.device)
+        states = torch.zeros((self.batch_size, *self.model.state_shape), dtype=torch.float, device=self.device)  # TODO dynamic
+        updated_qs = torch.zeros((self.batch_size, self.model.action_size), dtype=torch.float, device=self.device)
 
         for index, step in enumerate(minibatch):
             if not step.game_over:
@@ -267,7 +267,7 @@ class DQNAgent(DQN):
             updated_qs_sample = initial_qs[index]
             updated_qs_sample[step.action] = max_future_q
 
-            states[index] = torch.tensor(step.state, dtype=torch.float32, device=self.device)
+            states[index] = torch.tensor(self.model.get_state(step.state), dtype=torch.float, device=self.device)
             updated_qs[index] = updated_qs_sample
 
         predicted_qs = self.model(states)
@@ -279,22 +279,6 @@ class DQNAgent(DQN):
         
         return loss.item()
         
-    # def learn(self):
-    #     if len(self.replay_memory) < self.min_replay_size:
-    #         return
-    #     minibatch = random.sample(self.replay_memory, self.batch_size)
-    #     # Optimize net
-    #     for state, action, reward, next_state, game_over in minibatch:
-    #         target = reward
-    #         if not game_over:
-    #             target += self.gamma * torch.max(self.target_model(torch.tensor(next_state, dtype=torch.float32, device=self.device)))  # TODO
-    #         target_f = self.target_model(torch.tensor(state, dtype=torch.float32, device=self.device)).cpu().detach().numpy()
-    #         target_f[action] = target
-    #         self.model.zero_grad()
-    #         loss = self.loss_funct(self.model(torch.tensor(state, dtype=torch.float32, device=self.device)), torch.tensor(target_f, dtype=torch.float32, device=self.device))
-    #         loss.backward()
-    #         self.optimizer.step()
-    
 """
 DQN Player
 """
