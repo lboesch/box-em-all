@@ -118,6 +118,7 @@ class QAgent(QLearning):
         self.epsilon = epsilon # Exploration rate
         self.epsilon_decay = epsilon_decay
         self.epsilon_min = epsilon_min
+        # Training
         self.epsilon_update_freq = 100
         
     def reset(self):
@@ -187,18 +188,19 @@ class DQNAgent(DQN):
         self.target_model = copy.deepcopy(model)
         self.target_model.to(self.device)
         self.target_model.eval()
-        # self.optimizer = optim.Adam(self.model.parameters(), lr=alpha)
-        self.optimizer = optim.AdamW(self.model.parameters(), lr=alpha)
-        # self.optimizer = optim.SGD(self.model.parameters(), lr=alpha)
-        self.loss_funct = nn.MSELoss()
+        # self.loss_funct = nn.MSELoss()
+        self.loss_funct = nn.HuberLoss()
         # self.loss_funct = nn.SmoothL1Loss()
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=alpha)
+        # self.optimizer = optim.Adam(self.model.parameters(), lr=alpha)
+        # self.optimizer = optim.SGD(self.model.parameters(), lr=alpha)
+
         # Hyperparameters
         self.alpha = alpha  # Learning rate
         self.gamma = gamma  # Discount factor
         self.epsilon = epsilon # Exploration rate
         self.epsilon_decay = epsilon_decay
         self.epsilon_min = epsilon_min
-        self.epsilon_update_freq = 100
         # Training
         self.batch_size = 128
         self.max_replay_size = 32 * self.batch_size
@@ -206,11 +208,12 @@ class DQNAgent(DQN):
         self.replay_memory = deque(maxlen=self.max_replay_size)
         self.model_update_freq = 4
         self.target_network_update_freq = 100
+        self.epsilon_update_freq = 100
+        self.last_loss = None
         
     def reset(self):
         super().reset()
         self.total_reward = 0
-        self.last_loss = 0
         
     def act(self, game):
         # Action
@@ -255,7 +258,7 @@ class DQNAgent(DQN):
         next_states = np.array([self.target_model.get_state(transition.next_state) for transition in minibatch])
         target_qs = self.target_model(torch.tensor(next_states, dtype=torch.float, device=self.device))
 
-        states = torch.zeros((self.batch_size, *self.model.state_shape), dtype=torch.float, device=self.device)  # TODO dynamic
+        states = torch.zeros((self.batch_size, *self.model.input_shape), dtype=torch.float, device=self.device)
         updated_qs = torch.zeros((self.batch_size, self.model.action_size), dtype=torch.float, device=self.device)
 
         for index, step in enumerate(minibatch):

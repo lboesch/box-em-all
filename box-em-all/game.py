@@ -35,7 +35,7 @@ class DotsAndBoxes:
     
     """
     Edges
-    """    
+    """
     # Check if edge is empty
     def is_edge_empty(self, row, col):
         return self.board[row, col] == " "
@@ -58,6 +58,16 @@ class DotsAndBoxes:
     # Remove edge         
     def remove_edge(self, row, col):
         self.board[row, col] = " "
+        
+    # Get horizontal edges
+    @staticmethod
+    def get_horizontal_edges(board):
+        return (board[::2, 1::2] != ' ').astype(int)
+    
+    # Get vertical edges
+    @staticmethod
+    def get_vertical_edges(board):
+        return (board[1::2, ::2] != ' ').astype(int)
         
     """
     Boxes
@@ -147,24 +157,25 @@ class DotsAndBoxes:
         # Calculate reward
         def calc_reward(self, game):
             reward = 0
+            # Box completed
+            reward += 1 * len(self.boxes[4])
+            # Game over
             if self.game_over:
                 # Winning a game
                 if self.next_state_score_diff > 0:
-                    reward += 1
+                    reward += 5
                 # Loosing a game
                 elif self.next_state_score_diff < 0:
-                    reward -= 1
+                    reward -= 5
             else:
-                # Box completed
-                reward += 0.1 * len(self.boxes[4])
                 # Difference between player scores
                 # reward += 0.1 * (step.next_state_score_diff - step.state_score_diff)
                 if self.another_step:
                     # Chance to complete box with next action
-                    reward += 0.1 * len(self.boxes[3])
+                    reward += 1 * len(self.boxes[3])
                 else:
                     # Giving advantage to opponent
-                    reward -= 0.1 * len(self.boxes[3])
+                    reward -= 1 * len(self.boxes[3])
             self.reward = reward
         
     # Perform a step
@@ -235,15 +246,24 @@ class DotsAndBoxes:
     def calc_game_state_size(board_size):
         return 2 * (board_size * (board_size + 1))
     
-    # Get current game state as 1d array
+    # Get game state as 1d array
     @staticmethod
     def get_game_state(board):
-        return np.append(board[1::2, ::2] != ' ', board[::2, 1::2] != ' ').flatten().astype(int)
+        return np.append(DotsAndBoxes.get_horizontal_edges(board), DotsAndBoxes.get_vertical_edges(board)).flatten()
     
-    # Get current game state as 2d array
+    # Get game state as 2d array (1 channel)
     @staticmethod
-    def get_game_state_2d(board):
+    def get_game_state_2d_1ch(board):
         return np.where((board == "-") | (board == "|"), 1, 0).astype(int)
+        
+    # Get game state as 2d array (2 channels)
+    @staticmethod
+    def get_game_state_2d_2ch(board):
+        horizontal_edges = np.pad(DotsAndBoxes.get_horizontal_edges(board), ((0, 0), (0, 1)), mode="constant")
+        vertical_edges = np.pad(DotsAndBoxes.get_vertical_edges(board), ((0, 1), (0, 0)), mode="constant")
+        # horizontal_edges = np.where((board == "-"), 1, 0).astype(int)
+        # vertical_edges = np.where((board == "|"), 1, 0).astype(int)
+        return np.stack((horizontal_edges, vertical_edges))
     
     # Print the board
     def print_board(self):

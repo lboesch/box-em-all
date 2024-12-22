@@ -1,5 +1,4 @@
 from game import DotsAndBoxes
-import matplotlib.pyplot as plt
 import model
 import numpy as np
 import player
@@ -21,7 +20,7 @@ wandb_project = "box-em-all"
 # ====================================================================================================
 # Weight & Biases
 # ====================================================================================================
-def init_wandb(board_size, alpha, gamma, epsilon, epsilon_decay, epsilon_min, episodes, verification_episodes, game_state, tags):
+def init_wandb(board_size, alpha, gamma, epsilon, epsilon_decay, epsilon_min, episodes, verification_episodes, model_name, game_state, tags):
     if not is_human and do_train and use_wandb:
         wandb.login()
         run = wandb.init(
@@ -29,14 +28,15 @@ def init_wandb(board_size, alpha, gamma, epsilon, epsilon_decay, epsilon_min, ep
             project=wandb_project,
             # Track hyperparameters and run metadata
             config={
-                "board_size": board_size,
+                "board-size": board_size,
                 "alpha": alpha,
                 "gamma": gamma,
                 "epsilon": epsilon,
-                "epsilon_decay": epsilon_decay,
-                "epsilon_min": epsilon_min,
+                "epsilon-decay": epsilon_decay,
+                "epsilon-min": epsilon_min,
                 "episodes": episodes,
-                "verification_episodes": verification_episodes,
+                "verification-episodes": verification_episodes,
+                "model-name": model_name,
                 "game-state": game_state,
             },
             tags=["dots-and-boxes"].append(tags)
@@ -48,7 +48,7 @@ def init_wandb(board_size, alpha, gamma, epsilon, epsilon_decay, epsilon_min, ep
 def q_learning():
     # Parameters
     extend_q_table = False
-    board_size = 2
+    board_size = 3
     episodes = 30000
     verification_episodes = 100
     ###
@@ -59,7 +59,7 @@ def q_learning():
     epsilon_min = 0.01  # TODO
     ###
     model_name_load = 'q_table_2_2'
-    model_name_save = 'q_learning_' + str(board_size)
+    model_name_save = model.Policy.model_name('q_learning_' + str(board_size))
 
     # Weights & Biases
     init_wandb(
@@ -71,6 +71,7 @@ def q_learning():
         epsilon_min=epsilon_min,
         episodes=episodes,
         verification_episodes=verification_episodes,
+        model_name=model_name_save,
         game_state="with-both-players",
         tags=["q-learning"]
     )
@@ -129,27 +130,18 @@ def q_learning():
     
             # Export to Weigths & Biases
             if do_train and use_wandb:
-                wandb.log({
-                    "episode": episode,
-                    "win-random-player": round(score['P1'] / verification_episodes * 100, 2),
-                    "win-q-player": round(score['P2'] / verification_episodes * 100, 2),
-                    "tie": round(score['Tie'] / verification_episodes * 100, 2)
-                })
+                wandb.log(
+                    step=episode,
+                    data={
+                        f"win-p1-{verification_game.player_1.player_name}": round(score['P1'] / verification_episodes * 100, 2),
+                        f"win-p2-{verification_game.player_2.player_name}": round(score['P2'] / verification_episodes * 100, 2),
+                        "tie": round(score['Tie'] / verification_episodes * 100, 2)
+                    }
+                )
 
     if do_train and save_model:
         # Save model
         q_learning.save(model_name_save)
-        
-        # Plot train stats
-        # x = list(rewards)
-        # y = list(rewards.values())
-        # z = np.polyfit(x, y, 1)
-        # p = np.poly1d(z)
-        # plt.plot(x, p(x))
-        # plt.plot(x, y)
-        # plt.xlabel('Episode')
-        # plt.ylabel('Reward')
-        # plt.show()
 
 # ====================================================================================================
 # Deep Q-network (DQN)
@@ -159,18 +151,18 @@ def q_learning():
 # ====================================================================================================
 def dqn():
     # Parameters
-    board_size = 2
+    board_size = 3
     episodes = 100000
     verification_episodes = 100
     ###
     alpha = 0.001  # TODO
-    gamma = 0.2  # TODO
+    gamma = 0.3  # TODO
     epsilon = 1.0  # TODO
     epsilon_decay = 0.995  # TODO
     epsilon_min = 0.1  # TODO
     ###
     model_name_load = 'dqn_2_2'
-    model_name_save = 'dqn_' + str(board_size)
+    model_name_save = model.Policy.model_name('dqn_' + str(board_size))
     
     # Weights & Biases
     init_wandb(
@@ -182,6 +174,7 @@ def dqn():
         epsilon_min=epsilon_min,
         episodes=episodes,
         verification_episodes=verification_episodes,
+        model_name=model_name_save,
         game_state="with-both-players",
         tags=["dqn"]
     )
@@ -212,8 +205,8 @@ def dqn():
         return
     
     # Game
-    # player_1 = player.GreedyPlayer('GreedyPlayer1')
-    player_1 = player.QPlayer('QPlayer1', model=model.QLearning.load("q_learning_2_20241215001739"))
+    player_1 = player.GreedyPlayer('GreedyPlayer1')
+    # player_1 = player.QPlayer('QPlayer1', model=model.QLearning.load("q_learning_2_20241215001739"))
     player_2 = player.DQNAgent('DQNAgent2', model=policy_net, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min)
     game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
     verification_player_1 = player.GreedyPlayer('GreedyPlayer1')
@@ -264,12 +257,15 @@ def dqn():
             
             # Export to Weigths & Biases
             if do_train and use_wandb:
-                wandb.log({
-                    "episode": episode,
-                    "win-random-player": round(score['P1'] / verification_episodes * 100, 2),
-                    "win-dqn-player": round(score['P2'] / verification_episodes * 100, 2),
-                    "tie": round(score['Tie'] / verification_episodes * 100, 2)
-                })
+                wandb.log(
+                    step=episode,
+                    data={
+                        "train-loss:": losses[episode],
+                        f"win-p1-{verification_game.player_1.player_name}": round(score['P1'] / verification_episodes * 100, 2),
+                        f"win-p2-{verification_game.player_2.player_name}": round(score['P2'] / verification_episodes * 100, 2),
+                        "tie": round(score['Tie'] / verification_episodes * 100, 2)
+                    }
+                )
                 
     if do_train and save_model:
         # Save model

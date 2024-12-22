@@ -16,11 +16,15 @@ class Policy(ABC):
     def next_action(self, game):
         pass
     
+    @staticmethod
+    def model_name(name):
+        return name + '_' + datetime.now().strftime("%Y%m%d%H%M%S")
+    
     # Writing the object to a file
     def save(self, name):
         base_path = 'model'
         os.makedirs(base_path, exist_ok=True)
-        filename = os.path.join(base_path, name + '_' + datetime.now().strftime("%Y%m%d%H%M%S") + '.pkl')
+        filename = os.path.join(base_path, name + '.pkl')
         with open(filename, 'wb') as file:
             pickle.dump(self, file)
     
@@ -102,7 +106,7 @@ class DQNBase(nn.Module, Policy):
     def save(self, name):
         base_path = 'model'
         os.makedirs(base_path, exist_ok=True)
-        filename = os.path.join(base_path, name + '_' + datetime.now().strftime("%Y%m%d%H%M%S") + '.pt')
+        filename = os.path.join(base_path, name + '.pt')
         with open(filename, 'wb') as file:
             torch.save(self, file)
     
@@ -120,9 +124,9 @@ DQN without convolutional layers
 class DQN(DQNBase):
     def __init__(self, board_size):
         super().__init__(board_size)
-        self.state_shape = (self.state_size,)
+        self.input_shape = (self.state_size,)  # state size
         self.net = nn.Sequential(
-            nn.Linear(self.state_size, 128),
+            nn.Linear(self.input_shape[0], 128),
             nn.ReLU(),
             nn.Linear(128, 128),
             nn.ReLU(),
@@ -148,18 +152,22 @@ DQN with convolutional layers
 class DQNConv(DQNBase):
     def __init__(self, board_size):
         super().__init__(board_size)
-        self.state_shape = (2 * board_size + 1, 2 * board_size + 1)
-        self.input_channels = 1
+        # self.input_shape = (2, 2 * board_size + 1, 2 * board_size + 1)  # channels, height, width
+        self.input_shape = (2, board_size + 1, board_size + 1)  # channels, height, width
+        # Convolutional layers
         self.conv_layers = nn.Sequential(
-            nn.Conv2d(self.input_channels, 32, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(self.input_shape[0], 32, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.Flatten()
         )
         self.fc_input_size = self._get_conv_output_size()  # Calculate the size of the input to the first fully connected layer
+        # Fully connected layers
         self.fc_layers = nn.Sequential(
-            nn.Linear(self.fc_input_size, 128),
+            nn.Linear(self.fc_input_size, 256),
+            nn.ReLU(),
+            nn.Linear(256, 128),
             nn.ReLU(),
             nn.Linear(128, self.action_size)  # Q-values for all actions
         )
@@ -169,17 +177,17 @@ class DQNConv(DQNBase):
         )
         
     def _get_conv_output_size(self):
-        input = torch.rand(1, self.input_channels, *self.state_shape)
+        input = torch.rand(1, *self.input_shape)
         output = self.conv_layers(input)
         output_size = output.data.view(1, -1).size(1)
         return output_size
 
     def forward(self, x):
-        x = x.view(x.shape[0], self.input_channels, x.shape[1], x.shape[2])  # Batch size, channels, height, width
+        # x = x.view(x.shape[0], self.input_shape[0], x.shape[2], x.shape[3])  # Batch size, channels, height, width
         return self.net(x)
     
     def get_state(self, board):
-        return DotsAndBoxes.get_game_state_2d(board)
+        return DotsAndBoxes.get_game_state_2d_2ch(board)
     
     # Predict next action
     def next_action(self, game):
