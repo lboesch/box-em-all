@@ -1,6 +1,9 @@
 from dataclasses import dataclass
+import time
+from typing import List
 import numpy as np
 import random
+
 
 # ====================================================================================================
 # Dots & Boxes
@@ -281,6 +284,7 @@ class DotsAndBoxes:
         return True if not self.get_available_actions() else False
         # return self.player_1.player_score + self.player_2.player_score == self.total_boxes
 
+
     # Play game
     def play(self, print_board=None):
         self.episode_count += 1
@@ -320,3 +324,213 @@ class DotsAndBoxes:
             else:
                 print("It's a tie!")
             print("--------------------------------------------------------------------------------")
+
+@dataclass
+class Move:
+    player_number: int
+    row: int
+    col: int
+    timestamp: float
+
+class SinglePlayerOpponentDotsAndBoxes:
+    def __init__(self, board_size, opponent):
+        self.games_played = 0
+        # Initialize board
+        self.board_size = board_size
+        self.total_boxes = board_size ** 2
+        self.empty_board = self.__init_board()
+        self.all_actions = self.__init_actions()
+        # Initialize players
+        self.opponent = opponent
+        self.opponent.player_number = 1
+        self.opponent.score = 0
+        self.your_score = 0
+        self.move_history: List[Move] = []
+        self.last_move_check: float = time.time()
+        self.reset()
+        
+    def reset(self):
+        # Reset board
+        self.board = self.empty_board.copy()
+        self.available_actions = self.all_actions.copy()
+        # Reset players
+        self.opponent.reset()
+        self.opponent_score = 0
+        self.your_score = 0
+        self.move_history: List[Move] = []
+        self.last_move_check: float = time.time()
+        self.current_player = self.opponent.player_number
+    
+    """
+    Edges
+    """    
+    # Check if edge is empty
+    def is_edge_empty(self, row, col):
+        return self.board[row, col] == " "
+    
+    # Check if edge is horizontal
+    def is_horizontal_edge(self, row, col):
+        return row % 2 == 0 and col % 2 == 1
+    
+    # Check if edge is vertical
+    def is_vertical_edge(self, row, col):
+        return row % 2 == 1 and col % 2 == 0
+    
+    # Add edge
+    def add_edge(self, row, col):
+        if self.is_horizontal_edge(row, col):  # Horizontal edge
+            self.board[row, col] = "-"
+        elif self.is_vertical_edge(row, col):  # Vertical edge
+            self.board[row, col] = "|"
+    
+    # Remove edge         
+    def remove_edge(self, row, col):
+        self.board[row, col] = " "
+        
+    """
+    Boxes
+    """
+    # Check for any boxes that this edge might have completed
+    def check_boxes(self, row, col, sim=None):
+        boxes = {1: [], 2: [], 3: [], 4: []}
+        if sim:  # TODO board as object to copy for simulation
+           self.add_edge(row, col)  # Add edge (for simulation)
+        if self.is_horizontal_edge(row, col):  # Horizontal edge
+            for dx in [-1, 1]:
+                row_offset = row + dx
+                if 0 <= row_offset < self.board.shape[0]:
+                    boxes[self.count_box_edges(row_offset, col)].append((row_offset, col))
+        elif self.is_vertical_edge(row, col):  # Vertical edge
+            for dy in [-1, 1]:
+                col_offset = col + dy
+                if 0 <= col_offset < self.board.shape[1]:
+                    boxes[self.count_box_edges(row, col_offset)].append((row, col_offset))
+        if sim:
+            self.remove_edge(row, col)  # Remove edge (for simulation)       
+        return boxes
+    
+    def count_box_edges(self, x, y):
+        edges = 0
+        # Check if all edges of the box centered at (x, y) are filled
+        if not self.is_edge_empty(x - 1, y):
+            edges += 1
+        if not self.is_edge_empty(x + 1, y):
+            edges += 1
+        if not self.is_edge_empty(x, y - 1):
+            edges += 1
+        if not self.is_edge_empty(x, y + 1):
+            edges += 1   
+        return edges
+
+    """
+    Actions
+    """
+    # Initialize actions
+    def __init_actions(self):
+        actions = []
+        # Horizontal edges
+        for row in range(0, self.empty_board.shape[0], 2):
+            for col in range(1, self.empty_board.shape[1], 2):
+                actions.append((row, col))
+        # Vertical edges
+        for row in range(1, self.empty_board.shape[0], 2):
+            for col in range(0, self.empty_board.shape[1], 2):
+                actions.append((row, col))
+        return actions
+    
+    # Return a list of available actions
+    def get_available_actions(self):
+        return self.available_actions
+
+    # Check if a action is valid
+    def is_valid_action(self, row, col):
+        return (row, col) in self.available_actions
+        
+    def get_idx_by_action(self, row, col):
+        return self.all_actions.index((row, col))
+
+    """
+    Game
+    """
+    # Initialize board
+    def __init_board(self):
+        board = np.full(shape=(2 * self.board_size + 1, 2 * self.board_size + 1), fill_value=" ")
+        board[::2, ::2] = "•"
+        return board
+    
+    # Calculate game state size
+    @staticmethod
+    def calc_game_state_size(board_size):
+        return 2 * (board_size * (board_size + 1))
+    
+    # Get current game state as flattened vector
+    def get_game_state(self):
+        return np.append(self.board[1::2, ::2] != ' ', self.board[::2, 1::2] != ' ').flatten().astype(int)
+
+    
+    # Perform a step
+    def step(self, row, col):      
+        if self.is_valid_action(row, col):
+            self.available_actions.remove((row, col))  # Remove action from list of available actions
+            # Add edge
+            self.add_edge(row, col)
+            # Check for completed boxes
+            boxes = self.check_boxes(row, col)
+            self.move_history.append(Move(
+                player_number=self.current_player,
+                row=row,
+                col=col,
+                timestamp=time.time()
+            ))
+            if len(boxes[4]) > 0:
+                for completed_box in boxes[4]:
+                    self.board[completed_box] = str(self.current_player)
+                    if (self.current_player == 1):
+                        self.opponent_score += 1
+                    else:
+                        self.your_score += 1
+                return True, boxes  # Box completed -> another step
+            else:
+                return False, boxes  # Box not completed -> switch player
+        else:
+            print("Invalid action. Try again.")
+            return True, None  # Invalid action -> another step TODO create custom exception
+    
+    def play(self): 
+        if self.current_player == 1 and not self.is_game_over():
+            return self.step_opponent()
+    
+    def step_opponent(self):
+        self.current_player = 1
+        another_step = self.opponent.act(self) 
+        if self.is_game_over():
+            return
+        if another_step:
+            self.step_opponent()
+        else:
+            self.current_player = 2
+
+    # Print the board
+    def print_board(self):
+        print("\n")
+        print("Current Board:")
+        # TODO print(" ".join(map(str, list(range(0, len(self.board) + 2)))))
+        for row in self.board:
+            print(" ".join(row))
+        print("\n")
+
+    def get_new_moves(self):
+        """Get moves that happened since last check"""
+        print(self.move_history)
+        new_moves = [move for move in self.move_history if move.timestamp > self.last_move_check]
+        self.last_move_check = time.time()
+        print('got moves')
+        return new_moves
+
+    def get_all_moves(self):
+        """Get complete move history"""
+        return self.move_history
+
+    # Check if game is over
+    def is_game_over(self):
+        return True if not self.get_available_actions() else False
