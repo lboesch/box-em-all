@@ -158,8 +158,12 @@ class DQNConv(DQNBase):
         self.conv_layers = nn.Sequential(
             nn.Conv2d(self.input_shape[0], 32, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
+            nn.BatchNorm2d(32),
             nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
+            nn.BatchNorm2d(64),
+            # TODO BatchNorm2d necessary?
+            # TODO MaxPool2d?
             nn.Flatten()
         )
         self.fc_input_size = self._get_conv_output_size()  # Calculate the size of the input to the first fully connected layer

@@ -14,7 +14,7 @@ use_gpu = False
 is_human = False
 do_train = True
 save_model = True
-use_wandb = False
+use_wandb = True
 wandb_project = "box-em-all"
     
 # ====================================================================================================
@@ -156,10 +156,10 @@ def dqn():
     verification_episodes = 100
     ###
     alpha = 0.001  # TODO
-    gamma = 0.3  # TODO
+    gamma = 0.5  # TODO
     epsilon = 1.0  # TODO
     epsilon_decay = 0.995  # TODO
-    epsilon_min = 0.1  # TODO
+    epsilon_min = 0.05  # TODO
     ###
     model_name_load = 'dqn_2_2'
     model_name_save = model.Policy.model_name('dqn_' + str(board_size))
@@ -207,6 +207,7 @@ def dqn():
     # Game
     player_1 = player.GreedyPlayer('GreedyPlayer1')
     # player_1 = player.QPlayer('QPlayer1', model=model.QLearning.load("q_learning_2_20241215001739"))
+    # player_1 = player.DQNPlayer('DQNPlayer1', model=model.DQNConv.load("dqn_3_20241229162920"))
     player_2 = player.DQNAgent('DQNAgent2', model=policy_net, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min)
     game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
     verification_player_1 = player.GreedyPlayer('GreedyPlayer1')
@@ -225,6 +226,7 @@ def dqn():
         game.play() 
         rewards.append(game.player_2.total_reward)
         losses.append(game.player_2.last_loss)
+        # TODO summary over all episode and reset_stats for training or verification
             
         # Verification
         if debug or (episode > 0 and episode % 1000 == 0): 
