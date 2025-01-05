@@ -206,7 +206,7 @@ class DQNAgent(DQN):
         self.max_replay_size = 32 * self.batch_size
         self.min_replay_size = 8 * self.batch_size
         self.replay_memory = deque(maxlen=self.max_replay_size)
-        self.model_update_freq = 4
+        self.model_update_freq = 16
         self.target_network_update_freq = 100
         self.epsilon_update_freq = 100
         self.last_loss = None

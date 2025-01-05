@@ -157,25 +157,27 @@ class DotsAndBoxes:
         # Calculate reward
         def calc_reward(self, game):
             reward = 0
+            # TODO http://www.papg.com/show?1TXA
             # Box completed
             reward += 1 * len(self.boxes[4])
+            if self.another_step:
+                # Chance to complete box with next action
+                reward += 0.5 * len(self.boxes[3])
+            else:
+                # Giving advantage to opponent
+                # reward -= 1 * len(self.boxes[3])
+                # if len(self.boxes[3]) > 0:
+                #     reward += 1 * (self.next_state_score_diff - self.state_score_diff)
+                # Difference between player scores
+                reward += 1 * (self.next_state_score_diff - self.state_score_diff)
             # Game over
             if self.game_over:
                 # Winning a game
                 if self.next_state_score_diff > 0:
-                    reward += 5
+                    reward += 1
                 # Loosing a game
                 elif self.next_state_score_diff < 0:
-                    reward -= 5
-            else:
-                # Difference between player scores
-                # reward += 0.1 * (step.next_state_score_diff - step.state_score_diff)
-                if self.another_step:
-                    # Chance to complete box with next action
-                    reward += 1 * len(self.boxes[3])
-                else:
-                    # Giving advantage to opponent
-                    reward -= 1 * len(self.boxes[3])
+                    reward -= 1
             self.reward = reward
         
     # Perform a step
@@ -244,7 +246,7 @@ class DotsAndBoxes:
     # Calculate game state size
     @staticmethod
     def calc_game_state_size(board_size):
-        return 2 * (board_size * (board_size + 1))
+        return 2 * board_size * (board_size + 1)
     
     # Get game state as 1d array
     @staticmethod
