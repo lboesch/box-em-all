@@ -12,11 +12,11 @@ sessions = {}
 def start_game():
     player_1 = player.GreedyPlayer('GreedyPlayer1')
     game = SinglePlayerOpponentDotsAndBoxes(board_size=2, opponent=player_1)
+    initial_board = game.board.copy().tolist()
     game.play()
-    game.print_board()
     session_id = str(uuid.uuid4())
     sessions[session_id] = game
-    return jsonify({"message": "Game started", "session_id": session_id, "current_player": game.current_player})
+    return jsonify({"message": "Game started", "session_id": session_id, "current_player": game.current_player, "moves_made": game.get_new_moves(), "initial_board": initial_board})
 
 @app.route('/move', methods=['POST'])
 def make_move():
@@ -35,20 +35,17 @@ def make_move():
     if (game.current_player == game.opponent.player_number):
         game.play()
 
-    print(f"Available actions -> {game.get_available_actions()}")
-    print(f"check if available -> {(row, col) in game.available_actions}")
-    print(f"check if available -> {(0, 1) in game.available_actions}")
+    if (row, col) not in game.get_available_actions():
+        return jsonify({"message": "Invalid move"}), 400
     print(f"Player {game.current_player} making move at ({row}, {col})")
     again, _ = game.step(*(row, col));
 
     if not again:
         game.current_player = game.opponent.player_number
         game.play()
-    game.print_board()
     if game.is_game_over():
-        game.print_board()
-        return jsonify({"message": "Game over", "winner": 1 if game.opponent_score > game.your_score else 2 if game.opponent_score < game.your_score else 0})
-    return jsonify({"message": "Move made", "current_player": game.current_player, "moves_made": game.get_new_moves(), "all_moves": game.get_all_moves()})  
+        return jsonify({"message": "Game over", "moves_made": game.get_new_moves(), "winner": 1 if game.opponent_score > game.your_score else 2 if game.opponent_score < game.your_score else 0})
+    return jsonify({"message": "Move made", "current_player": game.current_player, "moves_made": game.get_new_moves(), "board": game.board.tolist()})  
 
 
 @app.route('/board', methods=['GET'])
@@ -59,8 +56,8 @@ def get_board():
         return jsonify({"message": "Invalid session ID"}), 400
 
     game = sessions[session_id]
-    game.print_board()
-    return jsonify({"board": game.board.tolist(), "game-state": game.get_game_state().tolist()})
+    game.print_visual_board()
+    return jsonify({"board": game.board.tolist()})
 
 if __name__ == '__main__':
     app.run(debug=True)
