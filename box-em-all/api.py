@@ -10,8 +10,10 @@ sessions = {}
 
 @app.route('/start', methods=['POST'])
 def start_game():
+    data = request.json
+    size = data.get('size')
     player_1 = player.GreedyPlayer('GreedyPlayer1')
-    game = SinglePlayerOpponentDotsAndBoxes(board_size=2, opponent=player_1)
+    game = SinglePlayerOpponentDotsAndBoxes(board_size=size, opponent=player_1)
     initial_board = game.board.copy().tolist()
     game.play()
     session_id = str(uuid.uuid4())
