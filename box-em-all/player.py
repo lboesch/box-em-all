@@ -82,7 +82,7 @@ class RandomPlayer(Player):
     
     def act(self, game):
         action = self.model.next_action(game)
-        another_step = game.step(*action)
+        _, another_step = game.step(*action)
         return another_step
         
 """
@@ -95,7 +95,7 @@ class GreedyPlayer(Player):
     
     def act(self, game):
         action = action = self.model.next_action(game)
-        another_step = game.step(*action)
+        _, another_step = game.step(*action)
         return another_step
 
 # ====================================================================================================
