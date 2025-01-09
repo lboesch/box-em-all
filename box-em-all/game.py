@@ -375,8 +375,8 @@ class SinglePlayerOpponentDotsAndBoxes:
             ))
             if not completed_boxes:
                 self.switch_player()
-            return len(completed_boxes)>0, completed_boxes
-        return False, None
+            return len(completed_boxes)>0
+        return False
 
     def check_and_update_boxes(self, row: int, col: int) -> List[Tuple[int, int]]:
         completed_boxes = []
