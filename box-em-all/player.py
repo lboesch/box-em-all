@@ -252,31 +252,29 @@ class DQNAgent(DQN):
         
         minibatch = random.sample(self.replay_memory, self.batch_size)
         
-        initial_states = np.array([self.model.get_state(transition.state) for transition in minibatch])
-        initial_qs = self.model(torch.tensor(initial_states, dtype=torch.float, device=self.device))
-
-        next_states = np.array([self.target_model.get_state(transition.next_state) for transition in minibatch])
-        target_qs = self.target_model(torch.tensor(next_states, dtype=torch.float, device=self.device))
-
-        states = torch.zeros((self.batch_size, *self.model.input_shape), dtype=torch.float, device=self.device)
-        updated_qs = torch.zeros((self.batch_size, self.model.action_size), dtype=torch.float, device=self.device)
-
-        for index, step in enumerate(minibatch):
-            if not step.game_over:
-                max_future_q = step.reward + self.gamma * torch.max(target_qs[index])
-            else:
-                max_future_q = step.reward
-
-            updated_qs_sample = initial_qs[index]
-            updated_qs_sample[step.action] = max_future_q
-
-            states[index] = torch.tensor(self.model.get_state(step.state), dtype=torch.float, device=self.device)
-            updated_qs[index] = updated_qs_sample
-
-        predicted_qs = self.model(states)
+        state, next_state, reward, action, game_over = zip(
+            *[(self.model.get_state(transition.state),
+            self.model.get_state(transition.next_state),
+            transition.reward,
+            transition.action,
+            transition.game_over)
+            for transition in minibatch]
+        )
+        
+        state = torch.tensor(np.array(state), dtype=torch.float, device=self.device)
+        next_state = torch.tensor(np.array(next_state), dtype=torch.float, device=self.device)
+        reward = torch.tensor(np.array(reward).reshape(-1, 1), dtype=torch.float, device=self.device)
+        action = torch.tensor(np.array(action).reshape(-1, 1), dtype=torch.long, device=self.device)
+        game_over = torch.tensor(np.array(game_over).reshape(-1, 1), dtype=torch.float, device=self.device)
+        
+        curr_q_value = self.model(state).gather(dim=1, index=action)
+        next_q_value = self.target_model(next_state).gather(  # Double DQN
+            dim=1, index=self.model(next_state).argmax(dim=1, keepdim=True)
+        ).detach()
+        target = reward + self.gamma * next_q_value * (1 - game_over)
         
         self.model.zero_grad()
-        loss = self.loss_funct(predicted_qs, updated_qs)
+        loss = self.loss_funct(curr_q_value, target)
         loss.backward()
         self.optimizer.step()
         
