@@ -129,12 +129,12 @@ class QAgent(QLearning):
         # Epsilon-greedy action selection
         if random.uniform(0, 1) < self.epsilon:
             # Exploration
-            self.action = random.choice(game.get_available_actions())
+            action = random.choice(game.get_available_actions())
         else:
             # Exploitation
-            self.action = self.model.next_action(game)
+            action = self.model.next_action(game)
         # Step
-        another_step = game.step(*self.action)
+        another_step = game.step(*action)
         return another_step
     
     def finalize_step(self, game):
@@ -154,9 +154,9 @@ class QAgent(QLearning):
     # Update Q-table (Q-learning algorithm)
     def learn(self, game):
         old_q_value = self.model.get_q_value(self.step.state, self.step.action)
-        max_future_q = max([self.model.get_q_value(self.step.next_state, action) for action in game.get_available_actions()], default=0)
+        max_future_q = max([self.model.get_q_value(self.step.next_state, game.get_idx_by_action(*action)) for action in game.get_available_actions()], default=0)
         # Formula: Q(s,a) = Q(s,a) + α * (r + γ * max(Q(s',a')) - Q(s,a))
-        new_q_value = old_q_value + self.alpha * (self.step.reward + self.gamma * max_future_q - old_q_value)  # TODO
+        new_q_value = old_q_value + self.alpha * (self.step.reward + self.gamma * max_future_q - old_q_value)
         self.model.update_q_value(self.step.state, self.step.action, new_q_value)
     
 """
@@ -194,7 +194,6 @@ class DQNAgent(DQN):
         self.optimizer = optim.AdamW(self.model.parameters(), lr=alpha)
         # self.optimizer = optim.Adam(self.model.parameters(), lr=alpha)
         # self.optimizer = optim.SGD(self.model.parameters(), lr=alpha)
-
         # Hyperparameters
         self.alpha = alpha  # Learning rate
         self.gamma = gamma  # Discount factor
@@ -218,12 +217,12 @@ class DQNAgent(DQN):
     def act(self, game):
         # Action
         if np.random.rand() <= self.epsilon:
-            self.action = random.choice(game.get_available_actions())
+            action = random.choice(game.get_available_actions())
         else:
-            self.action = self.model.next_action(game)
+            action = self.model.next_action(game)
         # Step
-        self.another_step = game.step(*self.action)
-        return self.another_step
+        another_step = game.step(*action)
+        return another_step
     
     def finalize_step(self, game):
         # Update total reward

@@ -80,7 +80,7 @@ class QLearning(Policy):
         
     # Predict next action
     def next_action(self, game):
-        return max(game.get_random_available_actions(), key=lambda action: self.get_q_value(DotsAndBoxes.get_game_state(game.board), game.get_idx_by_action(*action)))  # TODO game.get_idx_by_action()
+        return max(game.get_random_available_actions(), key=lambda action: self.get_q_value(game.board, game.get_idx_by_action(*action)))
     
 # ====================================================================================================
 # DQN
