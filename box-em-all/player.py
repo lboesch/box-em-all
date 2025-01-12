@@ -290,17 +290,22 @@ class DQNAgent(DQN):
     def update_model(self):        
         samples = self.memory.sample_batch()
         indices = samples["indices"]
+        
+        # 1-step Learning loss
         loss = self._compute_dqn_loss(samples, self.gamma)
           
         # N-step Learning loss
-        # combining 1-step loss and n-step loss to prevent high-variance
         if self.use_n_step:
             samples = self.memory_n.sample_batch_from_idxs(indices)
             gamma = self.gamma ** self.n_step
             n_loss = self._compute_dqn_loss(samples, gamma)
-            loss += n_loss
+            loss += n_loss  # combining 1-step loss and n-step loss to prevent high-variance
             
-        return loss
+        self.model.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+            
+        return loss.item()
         
     def _compute_dqn_loss(self, samples, gamma):
         state = torch.FloatTensor(samples["obs"]).to(self.device)
@@ -315,12 +320,9 @@ class DQNAgent(DQN):
         ).detach()
         target = reward + gamma * next_q_value * (1 - done)
         
-        self.model.zero_grad()
         loss = self.loss_funct(curr_q_value, target)
-        loss.backward()
-        self.optimizer.step()
         
-        return loss.item()
+        return loss
         
 """
 DQN Player
