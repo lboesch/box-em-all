@@ -284,6 +284,13 @@ class DotsAndBoxes:
         return True if not self.get_available_actions() else False
         # return self.player_1.player_score + self.player_2.player_score == self.total_boxes
 
+    def get_box_completing_moves(self) -> List[Tuple[int, int]]:
+        box_completing_moves = []
+        for available_action in self.get_available_actions():
+            boxes = self.check_boxes(*available_action, sim=True)
+            if len(boxes[4]) > 0:
+                box_completing_moves.append(available_action)
+        return box_completing_moves
 
     # Play game
     def play(self, print_board=None):
@@ -344,6 +351,7 @@ class SinglePlayerOpponentDotsAndBoxes:
         self.your_score = 0
         self.move_history: List[Move] = []
         self.last_move_check: float = time.time()
+        self.available_actions = []
         self.reset()
 
     def reset(self):
@@ -356,14 +364,23 @@ class SinglePlayerOpponentDotsAndBoxes:
         self.last_move_check: float = time.time()
         self.last_move_time = time.time()
         self.current_player = self.opponent.player_number
+        self.available_actions = self.__init_actions()
+
+    # Initialize actions
+    def __init_actions(self):
+        available_moves = []
+        for row in range(self.board.shape[0]):
+            for col in range(self.board.shape[1]):
+                if (row % 2 == 1 or col % 2 == 1) and (row % 2 == 0 or col % 2 == 0) and self.board[row, col] == 0:  # Empty cell
+                    available_moves.append((row, col))
+        return available_moves
 
 
     def step(self, row: int, col: int) -> bool:
         if (row % 2 == 1 or col % 2 == 1) and self.board[row, col] == 0:  # Empty cell
             self.board[row, col] = self.current_player
-            print(f"Player {self.current_player} making move at ({row}, {col})")
             completed_boxes = self.check_and_update_boxes(row, col)
-            print(f"Player {self.current_player} completed {len(completed_boxes)} boxes")
+            self.available_actions.remove((row, col))
             self.move_history.append(Move(
                 player_number=self.current_player,
                 row=row,
@@ -426,8 +443,8 @@ class SinglePlayerOpponentDotsAndBoxes:
     def step_opponent(self):
         self.current_player = 1
         another_step = self.opponent.act(self) 
-        print('Opponent making move')
-        print(another_step)
+        # print('Opponent making move')
+        # print(another_step)
         if self.is_game_over():
             return
         if another_step:
@@ -454,13 +471,7 @@ class SinglePlayerOpponentDotsAndBoxes:
         return new_moves
     
     def get_available_actions(self) -> List[Tuple[int, int]]:
-        """Returns a list of all available moves as (row, col) tuples."""
-        available_moves = []
-        for row in range(self.board.shape[0]):
-            for col in range(self.board.shape[1]):
-                if (row % 2 == 1 or col % 2 == 1) and (row % 2 == 0 or col % 2 == 0) and self.board[row, col] == 0:  # Empty cell
-                    available_moves.append((row, col))
-        return available_moves
+        return self.available_actions
 
     def is_game_over(self) -> bool:
         """Check if the game is over."""
@@ -486,6 +497,9 @@ class SinglePlayerOpponentDotsAndBoxes:
         for row in self.board:
             print(" ".join(map(str, row)))
         print("\n")
+
+    def get_game_state(self):
+        return np.append(self.board[1::2, ::2] > 0, self.board[::2, 1::2] > 0).flatten()
     
     def print_visual_board(self):
         """Prints the current game state with lines and boxes."""
@@ -503,3 +517,6 @@ class SinglePlayerOpponentDotsAndBoxes:
                     visual_row.append(" ")  # Empty space for boxes
             visual_board.append("".join(visual_row))
         print("\n".join(visual_board))
+    
+    def get_idx_by_action(self, row, col):
+        return self.available_actions.index((row, col))

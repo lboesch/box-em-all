@@ -39,7 +39,6 @@ def make_move():
 
     if (row, col) not in game.get_available_actions():
         return jsonify({"message": "Invalid move"}), 400
-    print(f"Player {game.current_player} making move at ({row}, {col})")
     again = game.step(*(row, col));
 
     if not again:
