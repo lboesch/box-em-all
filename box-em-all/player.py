@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import deque
+from typing import Deque, Dict, List, Tuple
 import copy
 import model
 import numpy as np
@@ -117,6 +118,7 @@ class QAgent(QLearning):
         self.gamma = gamma  # Discount factor
         self.epsilon = epsilon # Exploration rate
         self.epsilon_decay = epsilon_decay
+        self.epsilon_max = epsilon
         self.epsilon_min = epsilon_min
         # Training
         self.epsilon_update_freq = 100
@@ -142,9 +144,6 @@ class QAgent(QLearning):
         self.total_reward += self.step.reward
         # Update Q-table
         self.learn(game)
-        # Update epsilon
-        if self.step_count % self.epsilon_update_freq == 0:
-            self.update_epsilon()
         
     # Update epsilon (decrease exploration)
     def update_epsilon(self):
@@ -158,6 +157,10 @@ class QAgent(QLearning):
         # Formula: Q(s,a) = Q(s,a) + α * (r + γ * max(Q(s',a')) - Q(s,a))
         new_q_value = old_q_value + self.alpha * (self.step.reward + self.gamma * max_future_q - old_q_value)
         self.model.update_q_value(self.step.state, self.step.action, new_q_value)
+        
+        # Update epsilon
+        if self.step_count % self.epsilon_update_freq == 0:
+            self.update_epsilon()
     
 """
 Q-learning Player
@@ -199,20 +202,32 @@ class DQNAgent(DQN):
         self.gamma = gamma  # Discount factor
         self.epsilon = epsilon # Exploration rate
         self.epsilon_decay = epsilon_decay
+        self.epsilon_max = epsilon
         self.epsilon_min = epsilon_min
         # Training
-        self.batch_size = 128
+        self.n_step = 3
+        self.batch_size = 64
         self.max_replay_size = 32 * self.batch_size
         self.min_replay_size = 8 * self.batch_size
-        self.replay_memory = deque(maxlen=self.max_replay_size)
         self.model_update_freq = 16
         self.target_network_update_freq = 100
         self.epsilon_update_freq = 100
-        self.last_loss = None
+        # memory for 1-step Learning
+        self.memory = ReplayBuffer(
+            self.model.input_shape, self.max_replay_size, self.batch_size, n_step=1, gamma=gamma
+        )
+        # memory for N-step Learning
+        self.use_n_step = True if self.n_step > 1 else False
+        if self.use_n_step:
+            self.memory_n = ReplayBuffer(
+                self.model.input_shape, self.max_replay_size, self.batch_size, n_step=self.n_step, gamma=gamma
+            ) 
+        self.transition = list()
         
     def reset(self):
         super().reset()
         self.total_reward = 0
+        self.losses = [] 
         
     def act(self, game):
         # Action
@@ -228,49 +243,77 @@ class DQNAgent(DQN):
         # Update total reward
         self.total_reward += self.step.reward
         # Add step to replay memory
-        self.replay_memory.append(self.step)
+        self.transition = [
+            self.model.get_state(self.step.state),
+            self.step.action,
+            self.step.reward,
+            self.model.get_state(self.step.next_state),
+            self.step.game_over
+        ]     
+        # N-step transition
+        if self.use_n_step:
+            one_step_transition = self.memory_n.store(*self.transition)
+        # 1-step transition
+        else:
+            one_step_transition = self.transition
+        # add a single step transition
+        if one_step_transition:
+            self.memory.store(*one_step_transition)
         # Learn
         if self.step_count % self.model_update_freq == 0:
-            self.last_loss = self.learn()
-        # Update target net
-        if self.step_count % self.target_network_update_freq == 0:
-            self.target_model.load_state_dict(self.model.state_dict())
-        # Update epsilon
-        if self.step_count % self.epsilon_update_freq == 0:
-            self.update_epsilon()
+            self.learn()
 
     # Update epsilon (decrease exploration)
     def update_epsilon(self):
-        if self.epsilon > self.epsilon_min:
-            self.epsilon *= self.epsilon_decay
-    
-    # Train agent with replay memory
-    def learn(self):
-        if len(self.replay_memory) < self.min_replay_size:
-            return
-        
-        minibatch = random.sample(self.replay_memory, self.batch_size)
-        
-        state, next_state, reward, action, game_over = zip(
-            *[(self.model.get_state(transition.state),
-            self.model.get_state(transition.next_state),
-            transition.reward,
-            transition.action,
-            transition.game_over)
-            for transition in minibatch]
+        # linearly decrease epsilon
+        self.epsilon = max(
+            self.epsilon_min,
+            self.epsilon - (self.epsilon_max - self.epsilon_min) * self.epsilon_decay
         )
+    
+    def learn(self):
+         # if training is ready
+        if len(self.memory) >= self.min_replay_size:  # TODO self.batch_size?
+            loss = self.update_model()
+            self.losses.append(loss)
+            # update_cnt += 1  # TODO instead of step_count?
+            
+            # Update epsilon
+            if self.step_count % self.epsilon_update_freq == 0:
+                self.update_epsilon()
+            
+            # Update target net
+            if self.step_count % self.target_network_update_freq == 0:
+                self.target_model.load_state_dict(self.model.state_dict())
+
+    # Train agent with replay memory
+    def update_model(self):        
+        samples = self.memory.sample_batch()
+        indices = samples["indices"]
+        loss = self._compute_dqn_loss(samples, self.gamma)
+          
+        # N-step Learning loss
+        # combining 1-step loss and n-step loss to prevent high-variance
+        if self.use_n_step:
+            samples = self.memory_n.sample_batch_from_idxs(indices)
+            gamma = self.gamma ** self.n_step
+            n_loss = self._compute_dqn_loss(samples, gamma)
+            loss += n_loss
+            
+        return loss
         
-        state = torch.tensor(np.array(state), dtype=torch.float, device=self.device)
-        next_state = torch.tensor(np.array(next_state), dtype=torch.float, device=self.device)
-        reward = torch.tensor(np.array(reward).reshape(-1, 1), dtype=torch.float, device=self.device)
-        action = torch.tensor(np.array(action).reshape(-1, 1), dtype=torch.long, device=self.device)
-        game_over = torch.tensor(np.array(game_over).reshape(-1, 1), dtype=torch.float, device=self.device)
+    def _compute_dqn_loss(self, samples, gamma):
+        state = torch.FloatTensor(samples["obs"]).to(self.device)
+        next_state = torch.FloatTensor(samples["next_obs"]).to(self.device)
+        action = torch.LongTensor(samples["acts"].reshape(-1, 1)).to(self.device)
+        reward = torch.FloatTensor(samples["rews"].reshape(-1, 1)).to(self.device)
+        done = torch.FloatTensor(samples["done"].reshape(-1, 1)).to(self.device)
         
         curr_q_value = self.model(state).gather(dim=1, index=action)
         next_q_value = self.target_model(next_state).gather(  # Double DQN
             dim=1, index=self.model(next_state).argmax(dim=1, keepdim=True)
         ).detach()
-        target = reward + self.gamma * next_q_value * (1 - game_over)
+        target = reward + gamma * next_q_value * (1 - done)
         
         self.model.zero_grad()
         loss = self.loss_funct(curr_q_value, target)
@@ -287,3 +330,104 @@ class DQNPlayer(DQN):
         action = self.model.next_action(game)
         another_step = game.step(*action)
         return another_step
+    
+# ====================================================================================================
+# Replay buffer
+# ====================================================================================================
+class ReplayBuffer:
+    def __init__(
+        self, 
+        obs_dim: int, 
+        size: int, 
+        batch_size: int = 32, 
+        n_step: int = 3, 
+        gamma: float = 0.99,
+    ):
+        self.obs_buf = np.zeros([size, *obs_dim], dtype=np.float32)
+        self.next_obs_buf = np.zeros([size, *obs_dim], dtype=np.float32)
+        self.acts_buf = np.zeros([size], dtype=np.float32)
+        self.rews_buf = np.zeros([size], dtype=np.float32)
+        self.done_buf = np.zeros(size, dtype=np.float32)
+        self.max_size, self.batch_size = size, batch_size
+        self.ptr, self.size, = 0, 0
+        
+        # for N-step Learning
+        self.n_step_buffer = deque(maxlen=n_step)
+        self.n_step = n_step
+        self.gamma = gamma
+
+    def store(
+        self, 
+        obs: np.ndarray, 
+        act: np.ndarray, 
+        rew: float, 
+        next_obs: np.ndarray, 
+        done: bool
+    ) -> Tuple[np.ndarray, np.ndarray, float, np.ndarray, bool]:
+        transition = (obs, act, rew, next_obs, done)
+        self.n_step_buffer.append(transition)
+
+        # single step transition is not ready
+        if len(self.n_step_buffer) < self.n_step:
+            return ()
+        
+        # make a n-step transition
+        rew, next_obs, done = self._get_n_step_info(
+            self.n_step_buffer, self.gamma
+        )
+        obs, act = self.n_step_buffer[0][:2]
+        
+        self.obs_buf[self.ptr] = obs
+        self.next_obs_buf[self.ptr] = next_obs
+        self.acts_buf[self.ptr] = act
+        self.rews_buf[self.ptr] = rew
+        self.done_buf[self.ptr] = done
+        self.ptr = (self.ptr + 1) % self.max_size
+        self.size = min(self.size + 1, self.max_size)
+        
+        return self.n_step_buffer[0]
+
+    def sample_batch(self) -> Dict[str, np.ndarray]:
+        indices = np.random.choice(
+            self.size, size=self.batch_size, replace=False
+        )
+
+        return dict(
+            obs=self.obs_buf[indices],
+            next_obs=self.next_obs_buf[indices],
+            acts=self.acts_buf[indices],
+            rews=self.rews_buf[indices],
+            done=self.done_buf[indices],
+            # for N-step Learning
+            indices=indices,
+        )
+    
+    def sample_batch_from_idxs(
+        self, indices: np.ndarray
+    ) -> Dict[str, np.ndarray]:
+        # for N-step Learning
+        return dict(
+            obs=self.obs_buf[indices],
+            next_obs=self.next_obs_buf[indices],
+            acts=self.acts_buf[indices],
+            rews=self.rews_buf[indices],
+            done=self.done_buf[indices],
+        )
+    
+    def _get_n_step_info(
+        self, n_step_buffer: Deque, gamma: float
+    ) -> Tuple[np.int64, np.ndarray, bool]:
+        """Return n step rew, next_obs, and done"""
+        # info of the last transition
+        rew, next_obs, done = n_step_buffer[-1][-3:]
+
+        for transition in reversed(list(n_step_buffer)[:-1]):
+            r, n_o, d = transition[-3:]
+
+            rew = r + gamma * rew * (1 - d)
+            next_obs, done = (n_o, d) if d else (next_obs, done)
+
+        return rew, next_obs, done
+
+    def __len__(self) -> int:
+        return self.size

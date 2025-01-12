@@ -141,7 +141,7 @@ class DQN(DQNBase):
     def next_action(self, game):
         state = torch.tensor(self.get_state(game.board), dtype=torch.float, device=self.get_device())
         q_values = self(state)
-        # return game.get_action_by_idx(torch.argmax(q_values).item())  # TODO transform action to scalar value
+        # return game.get_action_by_idx(torch.argmax(q_values).item())  # TODO use instead of the following line?
         return max(game.get_random_available_actions(), key=lambda action: q_values[game.get_idx_by_action(*action)].item())
 
 '''
@@ -202,23 +202,3 @@ class DQNConv(DQNBase):
         state = torch.tensor(self.get_state(game.board), dtype=torch.float, device=self.get_device())
         q_values = torch.squeeze(self(state.unsqueeze(0)))
         return max(game.get_random_available_actions(), key=lambda action: q_values[game.get_idx_by_action(*action)].item())
-
-# ====================================================================================================
-# Replay memory
-# ====================================================================================================
-# Named tuple for transitions
-Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward'))
-
-# Replay memory
-class ReplayMemory(object):
-    def __init__(self, capacity):
-        self.memory = deque([], maxlen=capacity)
-
-    def push(self, *args):
-        self.memory.append(Transition(*args))
-
-    def sample(self, batch_size):
-        return random.sample(self.memory, batch_size)
-
-    def __len__(self):
-        return len(self.memory)
