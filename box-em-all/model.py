@@ -85,8 +85,6 @@ class QLearning(Policy):
 # ====================================================================================================
 # DQN
 # ====================================================================================================
-# https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
-# ====================================================================================================
 class DQNBase(nn.Module, Policy):
     def __init__(self, board_size):
         super().__init__()
@@ -156,28 +154,29 @@ class DQNConv(DQNBase):
         self.input_shape = (2, board_size + 1, board_size + 1)  # channels, height, width
         # Convolutional layers
         self.conv_layers = nn.Sequential(
-            nn.Conv2d(self.input_shape[0], 32, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(self.input_shape[0], 16, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(16),
+            nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.BatchNorm2d(32),
-            nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.BatchNorm2d(64),
-            # TODO BatchNorm2d necessary?
-            # TODO MaxPool2d?
             nn.Flatten()
         )
         self.fc_input_size = self._get_conv_output_size()  # Calculate the size of the input to the first fully connected layer
-        # Fully connected layers
-        self.fc_layers = nn.Sequential(
-            nn.Linear(self.fc_input_size, 256),
+        # Dueling Network: Fully connected layers
+        self.advantage_layers = nn.Sequential(
+            nn.Linear(self.fc_input_size, 128),
             nn.ReLU(),
-            nn.Linear(256, 128),
+            nn.Linear(128, 128),
             nn.ReLU(),
             nn.Linear(128, self.action_size)  # Q-values for all actions
         )
-        self.net = nn.Sequential(
-            self.conv_layers,
-            self.fc_layers
+        self.value_layers = nn.Sequential(
+            nn.Linear(self.fc_input_size, 128),
+            nn.ReLU(),
+            nn.Linear(128, 128),
+            nn.ReLU(),
+            nn.Linear(128, 1)
         )
         
     def _get_conv_output_size(self):
@@ -188,7 +187,12 @@ class DQNConv(DQNBase):
 
     def forward(self, x):
         # x = x.view(x.shape[0], self.input_shape[0], x.shape[2], x.shape[3])  # Batch size, channels, height, width
-        return self.net(x)
+        feature = self.conv_layers(x)
+        # Dueling Network
+        value = self.value_layers(feature)
+        advantage = self.advantage_layers(feature)
+        q = value + advantage - advantage.mean(dim=-1, keepdim=True)
+        return q
     
     def get_state(self, board):
         return DotsAndBoxes.get_game_state_2d_2ch(board)

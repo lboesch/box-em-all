@@ -55,7 +55,7 @@ class DotsAndBoxes:
         elif self.is_vertical_edge(row, col):  # Vertical edge
             self.board[row, col] = "|"
     
-    # Remove edge         
+    # Remove edge
     def remove_edge(self, row, col):
         self.board[row, col] = " "
         
@@ -158,18 +158,18 @@ class DotsAndBoxes:
         def calc_reward(self, game):
             reward = 0
             # TODO http://www.papg.com/show?1TXA
+            # Difference between player scores
+            reward += 1 * (self.next_state_score_diff - self.state_score_diff)
             # Box completed
-            reward += 1 * len(self.boxes[4])
+            # reward += 1 * len(self.boxes[4])
             if self.another_step:
                 # Chance to complete box with next action
                 reward += 0.5 * len(self.boxes[3])
             else:
                 # Giving advantage to opponent
-                # reward -= 1 * len(self.boxes[3])
+                reward -= 0.5 * len(self.boxes[3])
                 # if len(self.boxes[3]) > 0:
                 #     reward += 1 * (self.next_state_score_diff - self.state_score_diff)
-                # Difference between player scores
-                reward += 1 * (self.next_state_score_diff - self.state_score_diff)
             # Game over
             if self.game_over:
                 # Winning a game
