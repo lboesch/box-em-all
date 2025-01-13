@@ -139,10 +139,11 @@ class DQN(DQNBase):
     
     # Predict next action
     def next_action(self, game):
-        state = torch.tensor(self.get_state(game.board), dtype=torch.float, device=self.get_device())
-        q_values = self(state)
-        # return game.get_action_by_idx(torch.argmax(q_values).item())  # TODO use instead of the following line?
-        return max(game.get_random_available_actions(), key=lambda action: q_values[game.get_idx_by_action(*action)].item())
+        with torch.no_grad():
+            state = torch.tensor(self.get_state(game.board), dtype=torch.float, device=self.get_device())
+            q_values = self(state)
+            # return game.get_action_by_idx(torch.argmax(q_values).item())  # TODO use instead of the following line?
+            return max(game.get_random_available_actions(), key=lambda action: q_values[game.get_idx_by_action(*action)].item())
 
 '''
 DQN with convolutional layers
@@ -199,6 +200,7 @@ class DQNConv(DQNBase):
     
     # Predict next action
     def next_action(self, game):
-        state = torch.tensor(self.get_state(game.board), dtype=torch.float, device=self.get_device())
-        q_values = torch.squeeze(self(state.unsqueeze(0)))
-        return max(game.get_random_available_actions(), key=lambda action: q_values[game.get_idx_by_action(*action)].item())
+        with torch.no_grad():
+            state = torch.tensor(self.get_state(game.board), dtype=torch.float, device=self.get_device())
+            q_values = torch.squeeze(self(state.unsqueeze(0)))
+            return max(game.get_random_available_actions(), key=lambda action: q_values[game.get_idx_by_action(*action)].item())

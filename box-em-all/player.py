@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import deque
+from segment_tree import MinSegmentTree, SumSegmentTree
 from typing import Deque, Dict, List, Tuple
 import copy
 import model
@@ -7,6 +8,7 @@ import numpy as np
 import random
 import torch
 import torch.nn as nn
+from torch.nn.utils import clip_grad_norm_
 import torch.optim as optim
 
 """
@@ -184,7 +186,7 @@ class DQN(Player):
 DQN Agent
 """
 class DQNAgent(DQN):
-    def __init__(self, player_name, model, alpha, gamma, epsilon, epsilon_decay, epsilon_min):
+    def __init__(self, player_name, model, alpha, gamma, epsilon, epsilon_decay, epsilon_min, episodes):
         super().__init__(player_name, model)
         # self.target_net = model.DQN(state_size, action_size)
         # self.target_net.load_state_dict(model.state_dict())
@@ -192,7 +194,7 @@ class DQNAgent(DQN):
         self.target_model.to(self.device)
         self.target_model.eval()
         # self.loss_funct = nn.MSELoss()
-        self.loss_funct = nn.HuberLoss()
+        self.loss_funct = nn.HuberLoss(reduction="none")
         # self.loss_funct = nn.SmoothL1Loss()
         self.optimizer = optim.AdamW(self.model.parameters(), lr=alpha)
         # self.optimizer = optim.Adam(self.model.parameters(), lr=alpha)
@@ -205,6 +207,7 @@ class DQNAgent(DQN):
         self.epsilon_max = epsilon
         self.epsilon_min = epsilon_min
         # Training
+        self.episodes = episodes
         self.n_step = 3
         self.batch_size = 64
         self.max_replay_size = 32 * self.batch_size
@@ -212,11 +215,13 @@ class DQNAgent(DQN):
         self.model_update_freq = 16
         self.target_network_update_freq = 100
         self.epsilon_update_freq = 100
-        # memory for 1-step Learning
-        self.memory = ReplayBuffer(
-            self.model.input_shape, self.max_replay_size, self.batch_size, n_step=1, gamma=gamma
+        # Prioritized Experience Replay
+        self.beta = 0.4
+        self.prior_eps = 1e-6
+        self.memory = PrioritizedReplayBuffer(
+            self.model.input_shape, self.max_replay_size, self.batch_size, alpha=alpha, gamma=gamma
         )
-        # memory for N-step Learning
+        # N-step Learning
         self.use_n_step = True if self.n_step > 1 else False
         if self.use_n_step:
             self.memory_n = ReplayBuffer(
@@ -227,7 +232,7 @@ class DQNAgent(DQN):
     def reset(self):
         super().reset()
         self.total_reward = 0
-        self.losses = [] 
+        self.losses = []
         
     def act(self, game):
         # Action
@@ -261,7 +266,7 @@ class DQNAgent(DQN):
             self.memory.store(*one_step_transition)
         # Learn
         if self.step_count % self.model_update_freq == 0:
-            self.learn()
+            self.learn(episode=game.episode_count)
 
     # Update epsilon (decrease exploration)
     def update_epsilon(self):
@@ -271,7 +276,11 @@ class DQNAgent(DQN):
             self.epsilon - (self.epsilon_max - self.epsilon_min) * self.epsilon_decay
         )
     
-    def learn(self):
+    def learn(self, episode):
+        # PER: increase beta
+        fraction = min(episode / self.episodes, 1.0)
+        self.beta = self.beta + fraction * (1.0 - self.beta)
+        
          # if training is ready
         if len(self.memory) >= self.min_replay_size:  # TODO self.batch_size?
             loss = self.update_model()
@@ -288,22 +297,35 @@ class DQNAgent(DQN):
 
     # Train agent with replay memory
     def update_model(self):        
-        samples = self.memory.sample_batch()
+        samples = self.memory.sample_batch(self.beta)
+        weights = torch.FloatTensor(samples["weights"].reshape(-1, 1)).to(self.device)
         indices = samples["indices"]
         
         # 1-step Learning loss
-        loss = self._compute_dqn_loss(samples, self.gamma)
+        elementwise_loss = self._compute_dqn_loss(samples, self.gamma)
+        
+        # PER: importance sampling before average
+        loss = torch.mean(elementwise_loss * weights)
           
         # N-step Learning loss
         if self.use_n_step:
-            samples = self.memory_n.sample_batch_from_idxs(indices)
             gamma = self.gamma ** self.n_step
-            n_loss = self._compute_dqn_loss(samples, gamma)
-            loss += n_loss  # combining 1-step loss and n-step loss to prevent high-variance
+            samples = self.memory_n.sample_batch_from_idxs(indices)
+            elementwise_loss_n_loss = self._compute_dqn_loss(samples, gamma)
+            elementwise_loss += elementwise_loss_n_loss  # combining 1-step loss and n-step loss to prevent high-variance
+            
+            # PER: importance sampling before average
+            loss = torch.mean(elementwise_loss * weights)
             
         self.model.zero_grad()
         loss.backward()
+        clip_grad_norm_(self.model.parameters(), 5.0)
         self.optimizer.step()
+            
+        # PER: update priorities
+        loss_for_prior = elementwise_loss.detach().cpu().numpy()
+        new_priorities = loss_for_prior + self.prior_eps
+        self.memory.update_priorities(indices, new_priorities)
             
         return loss.item()
         
@@ -320,9 +342,9 @@ class DQNAgent(DQN):
         ).detach()
         target = reward + gamma * next_q_value * (1 - done)
         
-        loss = self.loss_funct(curr_q_value, target)
+        elementwise_loss = self.loss_funct(curr_q_value, target)
         
-        return loss
+        return elementwise_loss
         
 """
 DQN Player
@@ -337,6 +359,12 @@ class DQNPlayer(DQN):
 # Replay buffer
 # ====================================================================================================
 class ReplayBuffer:
+    """Replay buffer.
+    
+    Taken from github repository:
+    https://github.com/Curt-Park/rainbow-is-all-you-need/blob/master/07.n_step_learning.ipynb
+    
+    """
     def __init__(
         self, 
         obs_dim: int, 
@@ -433,3 +461,127 @@ class ReplayBuffer:
 
     def __len__(self) -> int:
         return self.size
+    
+class PrioritizedReplayBuffer(ReplayBuffer):
+    """Prioritized Replay buffer.
+    
+    Taken from github repository:
+    https://github.com/Curt-Park/rainbow-is-all-you-need/blob/master/03.per.ipynb
+    
+    Attributes:
+        max_priority (float): max priority
+        tree_ptr (int): next index of tree
+        alpha (float): alpha parameter for prioritized replay buffer
+        sum_tree (SumSegmentTree): sum tree for prior
+        min_tree (MinSegmentTree): min tree for min prior to get max weight
+        
+    """
+    
+    def __init__(
+        self, 
+        obs_dim: int, 
+        size: int, 
+        batch_size: int = 32, 
+        alpha: float = 0.6,
+        n_step: int = 1, 
+        gamma: float = 0.99,
+    ):
+        """Initialization."""
+        assert alpha >= 0
+        
+        super(PrioritizedReplayBuffer, self).__init__(
+            obs_dim, size, batch_size, n_step, gamma
+        )
+        self.max_priority, self.tree_ptr = 1.0, 0
+        self.alpha = alpha
+        
+        # capacity must be positive and a power of 2.
+        tree_capacity = 1
+        while tree_capacity < self.max_size:
+            tree_capacity *= 2
+
+        self.sum_tree = SumSegmentTree(tree_capacity)
+        self.min_tree = MinSegmentTree(tree_capacity)
+        
+    def store(
+        self, 
+        obs: np.ndarray, 
+        act: int, 
+        rew: float, 
+        next_obs: np.ndarray, 
+        done: bool,
+    ) -> Tuple[np.ndarray, np.ndarray, float, np.ndarray, bool]:
+        """Store experience and priority."""
+        transition = super().store(obs, act, rew, next_obs, done)
+        
+        if transition:
+            self.sum_tree[self.tree_ptr] = self.max_priority ** self.alpha
+            self.min_tree[self.tree_ptr] = self.max_priority ** self.alpha
+            self.tree_ptr = (self.tree_ptr + 1) % self.max_size
+        
+        return transition
+
+    def sample_batch(self, beta: float = 0.4) -> Dict[str, np.ndarray]:
+        """Sample a batch of experiences."""
+        assert len(self) >= self.batch_size
+        assert beta > 0
+        
+        indices = self._sample_proportional()
+        
+        obs = self.obs_buf[indices]
+        next_obs = self.next_obs_buf[indices]
+        acts = self.acts_buf[indices]
+        rews = self.rews_buf[indices]
+        done = self.done_buf[indices]
+        weights = np.array([self._calculate_weight(i, beta) for i in indices])
+        
+        return dict(
+            obs=obs,
+            next_obs=next_obs,
+            acts=acts,
+            rews=rews,
+            done=done,
+            weights=weights,
+            indices=indices,
+        )
+        
+    def update_priorities(self, indices: List[int], priorities: np.ndarray):
+        """Update priorities of sampled transitions."""
+        assert len(indices) == len(priorities)
+
+        for idx, priority in zip(indices, priorities):
+            assert priority > 0
+            assert 0 <= idx < len(self)
+
+            self.sum_tree[idx] = priority ** self.alpha
+            self.min_tree[idx] = priority ** self.alpha
+
+            self.max_priority = max(self.max_priority, priority)
+            
+    def _sample_proportional(self) -> List[int]:
+        """Sample indices based on proportions."""
+        indices = []
+        p_total = self.sum_tree.sum(0, len(self) - 1)
+        segment = p_total / self.batch_size
+        
+        for i in range(self.batch_size):
+            a = segment * i
+            b = segment * (i + 1)
+            upperbound = random.uniform(a, b)
+            idx = self.sum_tree.retrieve(upperbound)
+            indices.append(idx)
+            
+        return indices
+    
+    def _calculate_weight(self, idx: int, beta: float):
+        """Calculate the weight of the experience at idx."""
+        # get max weight
+        p_min = self.min_tree.min() / self.sum_tree.sum()
+        max_weight = (p_min * len(self)) ** (-beta)
+        
+        # calculate weights
+        p_sample = self.sum_tree[idx] / self.sum_tree.sum()
+        weight = (p_sample * len(self)) ** (-beta)
+        weight = weight / max_weight
+        
+        return weight

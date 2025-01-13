@@ -2,6 +2,7 @@ from game import DotsAndBoxes
 import model
 import numpy as np
 import player
+import statistics
 import torch
 from tqdm import tqdm
 import wandb
@@ -126,7 +127,7 @@ def q_learning():
             # Print verification score accross all verification episodes
             print("--------------------------------------------------------------------------------")
             print(f"Last Total Reward: {rewards[-1]}")
-            print(f"Mean Total Rewards: {sum(rewards)/len(rewards)}")
+            print(f"Mean Total Rewards: {statistics.mean(rewards)}")
             print("--------------------------------------------------------------------------------")
             print(f"Verification score in training episode {episode}: {score}")
             print(f"P1 ({verification_game.player_1.player_name}) Win: {round(score['P1'] / verification_episodes * 100, 2)}%")
@@ -212,7 +213,7 @@ def dqn():
     player_1 = player.GreedyPlayer('GreedyPlayer1')
     # player_1 = player.QPlayer('QPlayer1', model=model.QLearning.load("q_learning_2_20241215001739"))
     # player_1 = player.DQNPlayer('DQNPlayer1', model=model.DQNConv.load("dqn_3_20250112162030"))
-    player_2 = player.DQNAgent('DQNAgent2', model=policy_net, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min)
+    player_2 = player.DQNAgent('DQNAgent2', model=policy_net, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min, episodes=episodes)
     game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
     verification_player_1 = player.GreedyPlayer('GreedyPlayer1')
     # verification_player_1 = player.RandomPlayer('RandomPlayer1')
@@ -252,9 +253,9 @@ def dqn():
             # Print verification score accross all verification episodes
             print("--------------------------------------------------------------------------------")
             print(f"Last Loss: {losses[-1]}")
-            print(f"Mean Last Losses: {sum(losses)/len(losses)}")
+            print(f"Mean Last Losses: {statistics.mean(losses)}")
             print(f"Last Total Reward: {rewards[-1]}")
-            print(f"Mean Total Rewards: {sum(rewards)/len(rewards)}")
+            print(f"Mean Total Rewards: {statistics.mean(rewards)}")
             print("--------------------------------------------------------------------------------")
             print(f"Verification score in training episode {episode}: {score}")
             print(f"P1 ({verification_game.player_1.player_name}) Win: {round(score['P1'] / verification_episodes * 100, 2)}%")

@@ -7,7 +7,7 @@ import random
 # ====================================================================================================
 class DotsAndBoxes:
     def __init__(self, board_size, player_1, player_2):
-        self.game_count = 0
+        self.episode_count = 0
         # Initialize board
         self.board_size = board_size
         self.total_boxes = board_size ** 2
@@ -283,7 +283,7 @@ class DotsAndBoxes:
 
     # Play game
     def play(self, print_board=None):
-        self.game_count += 1
+        self.episode_count += 1
         # Turn based game until game over
         while True:
             if print_board:
