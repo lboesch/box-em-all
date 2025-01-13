@@ -255,26 +255,18 @@ class DotsAndBoxes:
     @staticmethod
     def get_game_state(board):
         return np.append(DotsAndBoxes.get_horizontal_edges(board), DotsAndBoxes.get_vertical_edges(board)).flatten()
-    
-    # Get game state as 2d array (1 channel)
-    @staticmethod
-    def get_game_state_2d_1ch(board):
-        return np.where((board == "-") | (board == "|"), 1, 0).astype(int)
         
     # Get game state as 2d array (2 channels)
     @staticmethod
     def get_game_state_2d_2ch(board):
         horizontal_edges = np.pad(DotsAndBoxes.get_horizontal_edges(board), ((0, 0), (0, 1)), mode="constant")
         vertical_edges = np.pad(DotsAndBoxes.get_vertical_edges(board), ((0, 1), (0, 0)), mode="constant")
-        # horizontal_edges = np.where((board == "-"), 1, 0).astype(int)
-        # vertical_edges = np.where((board == "|"), 1, 0).astype(int)
         return np.stack((horizontal_edges, vertical_edges))
     
     # Print the board
     def print_board(self):
         print("\n")
         print("Current Board:")
-        # TODO print(" ".join(map(str, list(range(0, len(self.board) + 2)))))
         for row in self.board:
             print(" ".join(row))
         print("\n")
@@ -282,7 +274,6 @@ class DotsAndBoxes:
     # Check if game is over
     def is_game_over(self):
         return True if not self.get_available_actions() else False
-        # return self.player_1.player_score + self.player_2.player_score == self.total_boxes
 
 
     # Play game
@@ -361,9 +352,7 @@ class SinglePlayerOpponentDotsAndBoxes:
     def step(self, row: int, col: int) -> bool:
         if (row % 2 == 1 or col % 2 == 1) and self.board[row, col] == 0:  # Empty cell
             self.board[row, col] = self.current_player
-            print(f"Player {self.current_player} making move at ({row}, {col})")
             completed_boxes = self.check_and_update_boxes(row, col)
-            print(f"Player {self.current_player} completed {len(completed_boxes)} boxes")
             self.move_history.append(Move(
                 player_number=self.current_player,
                 row=row,
