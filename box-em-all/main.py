@@ -2,6 +2,7 @@ from game import DotsAndBoxes
 import model
 import numpy as np
 import player
+import statistics
 import torch
 from tqdm import tqdm
 import wandb
@@ -14,7 +15,7 @@ use_gpu = False
 is_human = False
 do_train = True
 save_model = True
-use_wandb = True
+use_wandb = False
 wandb_project = "box-em-all"
     
 # ====================================================================================================
@@ -48,7 +49,7 @@ def init_wandb(board_size, alpha, gamma, epsilon, epsilon_decay, epsilon_min, ep
 def q_learning():
     # Parameters
     extend_q_table = False
-    board_size = 3
+    board_size = 2
     episodes = 30000
     verification_episodes = 100
     ###
@@ -99,15 +100,17 @@ def q_learning():
     verification_player_2 = player.QPlayer('QPlayer2', model=q_learning)
     verification_game = DotsAndBoxes(board_size=board_size, player_1=verification_player_1, player_2=verification_player_2)
     
+    rewards = []
     for episode in (pbar := tqdm(range(episodes if do_train else 1))):
         # Training
         pbar.set_description(f"Training Episode {episode}")
         if do_train:
             game.reset()
             game.play()
+            rewards.append(game.player_2.total_reward)
     
-        # Verification
         if debug or (episode > 0 and episode % 1000 == 0): 
+            # Verification
             score = {'P1': 0, 'P2': 0, 'Tie': 0}
             for _ in range(verification_episodes):
                 verification_game.reset()
@@ -122,6 +125,9 @@ def q_learning():
                     score['Tie'] += 1
         
             # Print verification score accross all verification episodes
+            print("--------------------------------------------------------------------------------")
+            print(f"Last Total Reward: {rewards[-1]}")
+            print(f"Mean Total Rewards: {statistics.mean(rewards)}")
             print("--------------------------------------------------------------------------------")
             print(f"Verification score in training episode {episode}: {score}")
             print(f"P1 ({verification_game.player_1.player_name}) Win: {round(score['P1'] / verification_episodes * 100, 2)}%")
@@ -146,7 +152,6 @@ def q_learning():
 # ====================================================================================================
 # Deep Q-network (DQN)
 # ====================================================================================================
-# https://pytorch.org/tutorials/beginner/saving_loading_models.html
 # https://github.com/Floni/AI_dotsandboxes/blob/master/dotsandboxesplayer.py
 # ====================================================================================================
 def dqn():
@@ -207,8 +212,8 @@ def dqn():
     # Game
     player_1 = player.GreedyPlayer('GreedyPlayer1')
     # player_1 = player.QPlayer('QPlayer1', model=model.QLearning.load("q_learning_2_20241215001739"))
-    # player_1 = player.DQNPlayer('DQNPlayer1', model=model.DQNConv.load("dqn_3_20241229162920"))
-    player_2 = player.DQNAgent('DQNAgent2', model=policy_net, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min)
+    # player_1 = player.DQNPlayer('DQNPlayer1', model=model.DQNConv.load("dqn_3_20250112162030"))
+    player_2 = player.DQNAgent('DQNAgent2', model=policy_net, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min, episodes=episodes)
     game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
     verification_player_1 = player.GreedyPlayer('GreedyPlayer1')
     # verification_player_1 = player.RandomPlayer('RandomPlayer1')
@@ -216,20 +221,20 @@ def dqn():
     verification_player_2 = player.DQNPlayer('DQNPlayer2', model=policy_net)
     verification_game = DotsAndBoxes(board_size=board_size, player_1=verification_player_1, player_2=verification_player_2)
     
-    # Training
     rewards = []
     losses = []
     for episode in (pbar := tqdm(range(episodes if do_train else 1))):
+        # Training
         pbar.set_description(f"Training Episode {episode}")
         policy_net.train()
         game.reset()
         game.play() 
         rewards.append(game.player_2.total_reward)
-        losses.append(game.player_2.last_loss)
+        losses.extend(game.player_2.losses)
         # TODO summary over all episode and reset_stats for training or verification
             
-        # Verification
         if debug or (episode > 0 and episode % 1000 == 0): 
+            # Verification
             score = {'P1': 0, 'P2': 0, 'Tie': 0}
             policy_net.eval()
             with torch.no_grad():
@@ -247,10 +252,10 @@ def dqn():
         
             # Print verification score accross all verification episodes
             print("--------------------------------------------------------------------------------")
-            print(f"Last Loss: {losses[episode]}")
-            print(f"Total Rewards: {rewards[episode]}")
-            # print(f"Last Loss: {sum(losses)/episodes}")
-            # print(f"Total Rewards: {sum(rewards)/episodes}")
+            print(f"Last Loss: {losses[-1]}")
+            print(f"Mean Last Losses: {statistics.mean(losses)}")
+            print(f"Last Total Reward: {rewards[-1]}")
+            print(f"Mean Total Rewards: {statistics.mean(rewards)}")
             print("--------------------------------------------------------------------------------")
             print(f"Verification score in training episode {episode}: {score}")
             print(f"P1 ({verification_game.player_1.player_name}) Win: {round(score['P1'] / verification_episodes * 100, 2)}%")
