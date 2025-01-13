@@ -27,8 +27,8 @@ class DotsAndBoxes:
         # Reset players
         self.player_1.reset()
         self.player_2.reset()
-        self.current_player = self.player_2
-        # self.current_player = random.choice((self.player_1, self.player_2))
+        # self.current_player = self.player_2
+        self.current_player = random.choice((self.player_1, self.player_2))
         self.opponent_player = self.player_2 if self.current_player == self.player_1 else self.player_1
         # Reset scoreboard
         # self.scores = {self.player_1.player_number: self.player_1.player_score, self.player_2.player_number: self.player_2.player_score}
