@@ -50,7 +50,6 @@ class Random(Policy):
 class Greedy(Policy):
     # Predict next action
     def next_action(self, game):
-        action = ()
         # Prioritize actions that complete a box
         box_completing_moves = game.get_box_completing_moves()
         if box_completing_moves:

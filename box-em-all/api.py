@@ -57,7 +57,6 @@ def get_board():
         return jsonify({"message": "Invalid session ID"}), 400
 
     game = sessions[session_id]
-    game.print_visual_board()
     return jsonify({"board": game.board.tolist()})
 
 if __name__ == '__main__':

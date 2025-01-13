@@ -33,15 +33,13 @@ class DotsAndBoxes:
         # self.current_player = self.player_2
         self.current_player = random.choice((self.player_1, self.player_2))
         self.opponent_player = self.player_2 if self.current_player == self.player_1 else self.player_1
-        # Reset scoreboard
-        # self.scores = {self.player_1.player_number: self.player_1.player_score, self.player_2.player_number: self.player_2.player_score}
     
     """
     Edges
     """
     # Check if edge is empty
     def is_edge_empty(self, row, col):
-        return self.board[row, col] == " "
+        return self.board[row, col] == 0
     
     # Check if edge is horizontal
     def is_horizontal_edge(self, row, col):
@@ -50,27 +48,24 @@ class DotsAndBoxes:
     # Check if edge is vertical
     def is_vertical_edge(self, row, col):
         return row % 2 == 1 and col % 2 == 0
-    
+
     # Add edge
     def add_edge(self, row, col):
-        if self.is_horizontal_edge(row, col):  # Horizontal edge
-            self.board[row, col] = "-"
-        elif self.is_vertical_edge(row, col):  # Vertical edge
-            self.board[row, col] = "|"
+        self.board[row, col] = self.current_player.player_number
     
     # Remove edge
     def remove_edge(self, row, col):
-        self.board[row, col] = " "
+        self.board[row, col] = 0
         
     # Get horizontal edges
     @staticmethod
     def get_horizontal_edges(board):
-        return (board[::2, 1::2] != ' ').astype(int)
+        return (board[::2, 1::2] > 0).astype(int)
     
     # Get vertical edges
     @staticmethod
     def get_vertical_edges(board):
-        return (board[1::2, ::2] != ' ').astype(int)
+        return (board[1::2, ::2] > 0).astype(int)
         
     """
     Boxes
@@ -78,7 +73,7 @@ class DotsAndBoxes:
     # Check for any boxes that this edge might have completed
     def check_boxes(self, row, col, sim=None):
         boxes = {1: [], 2: [], 3: [], 4: []}
-        if sim:  # TODO board as object to copy for simulation
+        if sim:
            self.add_edge(row, col)  # Add edge (for simulation)
         if self.is_horizontal_edge(row, col):  # Horizontal edge
             for dx in [-1, 1]:
@@ -94,18 +89,21 @@ class DotsAndBoxes:
             self.remove_edge(row, col)  # Remove edge (for simulation)       
         return boxes
     
-    def count_box_edges(self, x, y):
-        edges = 0
-        # Check if all edges of the box centered at (x, y) are filled
-        if not self.is_edge_empty(x - 1, y):
-            edges += 1
-        if not self.is_edge_empty(x + 1, y):
-            edges += 1
-        if not self.is_edge_empty(x, y - 1):
-            edges += 1
-        if not self.is_edge_empty(x, y + 1):
-            edges += 1
+    def get_box_edges(self, row: int, col: int) -> List[Tuple[int, int]]:
+        edges = []
+        if row > 0:
+            edges.append((row - 1, col))  # top
+        if row < self.board_size * 2:
+            edges.append((row + 1, col))  # bottom
+        if col > 0:
+            edges.append((row, col - 1))  # left
+        if col < self.board_size * 2:
+            edges.append((row, col + 1))  # right
         return edges
+
+
+    def count_box_edges(self, row: int, col: int) -> int:
+        return sum(1 for edge in self.get_box_edges(row, col) if self.board[edge] != 0)
 
     """
     Actions
@@ -160,9 +158,8 @@ class DotsAndBoxes:
         # Calculate reward
         def calc_reward(self, game):
             reward = 0
-            # TODO http://www.papg.com/show?1TXA
             # Difference between player scores
-            reward += 1 * (self.next_state_score_diff - self.state_score_diff)
+            reward += (self.next_state_score_diff - self.state_score_diff)
             # Box completed
             # reward += 1 * len(self.boxes[4])
             if self.another_step:
@@ -177,10 +174,10 @@ class DotsAndBoxes:
             if self.game_over:
                 # Winning a game
                 if self.next_state_score_diff > 0:
-                    reward += 1
+                    reward += 10
                 # Loosing a game
                 elif self.next_state_score_diff < 0:
-                    reward -= 1
+                    reward -= 10
             self.reward = reward
         
     # Perform a step
@@ -199,7 +196,7 @@ class DotsAndBoxes:
             step.boxes = self.check_boxes(row, col) 
             if len(step.boxes[4]) > 0:
                 for completed_box in step.boxes[4]:
-                    self.board[completed_box] = str(self.current_player.player_number)
+                    self.board[completed_box] = self.current_player.player_number
                     self.current_player.player_score += 1
                 another_step = True  # Box completed -> another step
             else:
@@ -242,8 +239,7 @@ class DotsAndBoxes:
     """
     # Initialize board
     def __init_board(self):
-        board = np.full(shape=(2 * self.board_size + 1, 2 * self.board_size + 1), fill_value=" ")
-        board[::2, ::2] = "•"
+        board = np.zeros((self.board_size * 2 + 1, self.board_size * 2 + 1), dtype=np.int8)
         return board
     
     # Calculate game state size
@@ -268,12 +264,37 @@ class DotsAndBoxes:
         print("\n")
         print("Current Board:")
         for row in self.board:
-            print(" ".join(row))
+            print(" ".join(map(str, row)))
         print("\n")
+    
+    def print_visual_board(self):
+        """Prints the current game state with lines and boxes."""
+        visual_board = []
+        for row in range(self.board.shape[0]):
+            visual_row = []
+            for col in range(self.board.shape[1]):
+                if row % 2 == 0 and col % 2 == 0:
+                    visual_row.append("+")  # Dots
+                elif row % 2 == 0:
+                    visual_row.append("-" if self.board[row, col] != 0 else " ")  # Horizontal lines
+                elif col % 2 == 0:
+                    visual_row.append("|" if self.board[row, col] != 0 else " ")  # Vertical lines
+                else:
+                    visual_row.append(" ")  # Empty space for boxes
+            visual_board.append("".join(visual_row))
+        print("\n".join(visual_board))
 
     # Check if game is over
     def is_game_over(self):
         return True if not self.get_available_actions() else False
+    
+    def get_box_completing_moves(self) -> List[Tuple[int, int]]:
+        box_completing_moves = []
+        for available_action in self.get_available_actions():
+            boxes = self.check_boxes(*available_action, sim=True)
+            if len(boxes[4]) > 0:
+                box_completing_moves.append(available_action)
+        return box_completing_moves
 
 
     # Play game
@@ -366,6 +387,18 @@ class SinglePlayerOpponentDotsAndBoxes:
                 self.switch_player()
             return len(completed_boxes)>0
         return False
+
+    def check_and_update_boxes(self, row: int, col: int) -> List[Tuple[int, int]]:
+        completed_boxes = []
+        for box_row, box_col in self.get_adjacent_boxes(row, col):
+            if self.is_box_completed(box_row, box_col):
+                completed_boxes.append((box_row, box_col))
+                self.board[box_row, box_col] = self.current_player
+                if (self.current_player == self.opponent.player_number):
+                    self.opponent_score += 1
+                else:
+                    self.your_score += 1
+        return completed_boxes
 
     def check_and_update_boxes(self, row: int, col: int) -> List[Tuple[int, int]]:
         completed_boxes = []

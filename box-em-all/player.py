@@ -22,7 +22,7 @@ class Player(ABC):
         self.reset()
 
     def reset(self):
-        self.player_score = 0  # TODO move to game?
+        self.player_score = 0
         self.step = None
         self.step_hist = []
         
@@ -32,31 +32,6 @@ class Player(ABC):
     
     def finalize_step(self, game):
         pass
-
-"""
-Agent Base Class
-"""
-# class Agent(Player):
-#     def __init__(self, player_name, policy):
-#         super().__init__(player_name)
-#         self.policy = policy
-    
-#     def act(self, game):
-#         action = self.policy.next_action(game)
-#         another_step, _ = game.step(*action)
-#         return another_step
-
-"""
-Learner Base Class
-"""
-# class Learner(Player):
-#     def __init__(self, player_name, policy):
-#         super().__init__(player_name)
-#         self.policy = policy
-        
-#     @abstractmethod
-#     def learn(self, game):
-#         pass
 
 # ====================================================================================================
 # Players
@@ -100,6 +75,16 @@ class GreedyPlayer(Player):
         action = action = self.model.next_action(game)
         another_step = game.step(*action)
         return another_step
+
+"""
+Single Player used for api with async input
+"""
+class SinglePlayer(Player):
+    def __init__(self, player_name):
+        super().__init__(player_name)
+    
+    def act(self, _):
+        raise NotImplementedError("The act method should not be called on SinglePlayer.")
 
 # ====================================================================================================
 # Q-learning
