@@ -15,10 +15,10 @@ def start_game():
     player_1 = player.GreedyPlayer('GreedyPlayer1')
     game = SinglePlayerOpponentDotsAndBoxes(board_size=size, opponent=player_1)
     initial_board = game.board.copy().tolist()
-    game.play()
+    game.play_opponent()
     session_id = str(uuid.uuid4())
     sessions[session_id] = game
-    return jsonify({"message": "Game started", "session_id": session_id, "current_player": game.current_player, "moves_made": game.get_new_moves(), "initial_board": initial_board})
+    return jsonify({"message": "Game started", "session_id": session_id, "current_player": game.current_player.player_number, "moves_made": game.get_new_moves(), "initial_board": initial_board})
 
 @app.route('/move', methods=['POST'])
 def make_move():
@@ -34,19 +34,18 @@ def make_move():
 
     game = sessions[session_id]
 
-    if (game.current_player == game.opponent.player_number):
-        game.play()
+    if (game.current_player.player_number == game.player_1.player_number):
+        game.play_opponent()
 
     if (row, col) not in game.get_available_actions():
         return jsonify({"message": "Invalid move"}), 400
     again = game.step(*(row, col));
 
     if not again:
-        game.current_player = game.opponent.player_number
-        game.play()
+        game.play_opponent()
     if game.is_game_over():
-        return jsonify({"message": "Game over", "moves_made": game.get_new_moves(), "winner": 1 if game.opponent_score > game.your_score else 2 if game.opponent_score < game.your_score else 0})
-    return jsonify({"message": "Move made", "current_player": game.current_player, "moves_made": game.get_new_moves(), "board": game.board.tolist()})  
+        return jsonify({"message": "Game over", "moves_made": game.get_new_moves(), "winner": 1 if game.player_1.player_score > game.player_2.player_score else 2 if game.player_1.player_score < game.player_2.player_score else 0})
+    return jsonify({"message": "Move made", "current_player": game.current_player.player_number, "moves_made": game.get_new_moves(), "board": game.board.tolist()})  
 
 
 @app.route('/board', methods=['GET'])

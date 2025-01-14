@@ -204,14 +204,15 @@ def dqn():
     # Human Player
     if is_human:
         player_1 = player.HumanPlayer('HumanPlayer1')
-        player_2 = player.DQNPlayer('DQNPlayer2', model=model.DQN.load("dqn_2_20241220085750"))
+        player_2 = player.GreedyPlayer('GreedyPlayer1')
+        # player_2 = player.DQNPlayer('DQNPlayer2', model=model.DQN.load("dqn_2_20241220085750"))
         game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
         game.play(print_board=is_human)
         return
     
     # Game
-    # player_1 = player.GreedyPlayer('GreedyPlayer1')
-    player_1 = player.RandomPlayer('RandomPlayer1')
+    player_1 = player.GreedyPlayer('GreedyPlayer1')
+    # player_1 = player.RandomPlayer('RandomPlayer1')
     # player_1 = player.QPlayer('QPlayer1', model=model.QLearning.load("q_learning_2_20241215001739"))
     # player_1 = player.DQNPlayer('DQNPlayer1', model=model.DQNConv.load("dqn_3_20250112162030"))
     player_2 = player.DQNAgent('DQNAgent2', model=policy_net, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min, episodes=episodes)
