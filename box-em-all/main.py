@@ -253,7 +253,7 @@ def dqn():
             # Print verification score accross all verification episodes
             print("--------------------------------------------------------------------------------")
             print(f"Last Loss: {losses[-1]}")
-            print(f"Mean Last Losses: {statistics.mean(losses)}")
+            print(f"Mean Losses: {statistics.mean(losses)}")
             print(f"Last Total Reward: {rewards[-1]}")
             print(f"Mean Total Rewards: {statistics.mean(rewards)}")
             print("--------------------------------------------------------------------------------")
@@ -277,10 +277,67 @@ def dqn():
     if do_train and save_model:
         # Save model
         policy_net.save(model_name_save)
+        
+# ====================================================================================================
+# Verification
+# ====================================================================================================
+def verification():
+    # Parameters
+    board_size = 4
+    episodes = 10000
+    model_name_load = 'dqn_4_20250113221012'
+    
+    # Device
+    if use_gpu:
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
+        elif torch.backends.mps.is_available():  # TODO very slow on Apple M1
+            device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
+                        
+    # Game
+    player_1 = player.GreedyPlayer('GreedyPlayer1')
+    player_2 = player.DQNPlayer('DQNPlayer2', model=model.DQNConv.load(model_name_load).eval().to(device))
+    game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
+            
+    score = {'P1': 0, 'P2': 0, 'Tie': 0}
+    with torch.no_grad():
+        for episode in (pbar := tqdm(range(episodes))):
+            pbar.set_description(f"Verification Episode {episode}")
+            game.reset()
+            game.play()
+            
+            # Update player score
+            if game.player_1.player_score > game.player_2.player_score:
+                score['P1'] += 1
+            elif game.player_1.player_score < game.player_2.player_score:
+                score['P2'] += 1
+            else:
+                score['Tie'] += 1
 
+    # Print verification score accross all episodes
+    print("--------------------------------------------------------------------------------")
+    print(f"Verification score after {episodes} episodes: {score}")
+    print(f"P1 ({game.player_1.player_name}) Win: {round(score['P1'] / episodes * 100, 2)}%")
+    print(f"P2 ({game.player_2.player_name}) Win: {round(score['P2'] / episodes * 100, 2)}%")
+    print("--------------------------------------------------------------------------------")
+            
 # ====================================================================================================
 # Start
 # ====================================================================================================
 if __name__ == "__main__":
-    # q_learning()  # Q-learning
-    dqn()  # Deep Q-network
+    choice = input(
+        "What do you want to do?\n" \
+        "1) Q-learning\n" \
+        "2) DQN\n" \
+        "3) Verification\n" \
+        "Enter your choice: "
+    )
+    
+    if choice == "1":
+        q_learning()  # Q-learning
+    elif choice == "2":
+        dqn()  # Deep Q-network
+    elif choice == "3":
+        verification()  # Verification
