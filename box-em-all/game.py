@@ -160,7 +160,7 @@ class DotsAndBoxes:
         def calc_reward(self, game):
             reward = 0
             # Difference between player scores
-            reward += (self.next_state_score_diff - self.state_score_diff)
+            reward += 1 * (self.next_state_score_diff - self.state_score_diff)
             # Box completed
             # reward += 1 * len(self.boxes[4])
             if self.another_step:
@@ -175,10 +175,10 @@ class DotsAndBoxes:
             if self.game_over:
                 # Winning a game
                 if self.next_state_score_diff > 0:
-                    reward += 10
+                    reward += 1
                 # Loosing a game
                 elif self.next_state_score_diff < 0:
-                    reward -= 10
+                    reward -= 1
             self.reward = reward
         
     # Perform a step
@@ -187,9 +187,9 @@ class DotsAndBoxes:
             self.current_player.step_count += 1
             # Create new step
             step = self.current_player.step = self.Step()
-            step.state = self.board.copy()  # TODO
+            step.state = self.board.copy()
             step.state_score_diff = self.get_player_score_diff()
-            step.action = self.get_idx_by_action(row, col)  # TODO
+            step.action = self.get_idx_by_action(row, col)
             # Perform step
             self.available_actions.remove((row, col))  # Remove action from list of available actions
             self.add_edge(row, col)  # Add edge
@@ -213,7 +213,7 @@ class DotsAndBoxes:
         step = self.current_player.step
         if step:
             # Finalize step
-            step.next_state = self.board.copy()  # TODO
+            step.next_state = self.board.copy()
             step.next_state_score_diff = self.get_player_score_diff()
             step.game_over = self.is_game_over()
             step.calc_reward(self)
@@ -296,7 +296,6 @@ class DotsAndBoxes:
                 if self.count_box_edges(box_row, box_col, row, col) == 4:
                     box_completing_moves.append((row, col))
         return box_completing_moves
-
 
     # Play game
     def play(self, print_board=None):

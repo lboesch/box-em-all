@@ -53,11 +53,11 @@ def q_learning():
     episodes = 30000
     verification_episodes = 100
     ###
-    alpha = 0.6  # TODO
-    gamma = 0.5  # TODO
-    epsilon = 1.0  # TODO
-    epsilon_decay = 0.995  # TODO
-    epsilon_min = 0.01  # TODO
+    alpha = 0.6
+    gamma = 0.5
+    epsilon = 1.0
+    epsilon_decay = 0.995
+    epsilon_min = 0.01
     ###
     model_name_load = 'q_table_2_2'
     model_name_save = model.Policy.model_name('q_learning_' + str(board_size))
@@ -160,11 +160,11 @@ def dqn():
     episodes = 100000
     verification_episodes = 100
     ###
-    alpha = 0.001  # TODO
-    gamma = 0.5  # TODO
-    epsilon = 1.0  # TODO
-    epsilon_decay = 0.995  # TODO
-    epsilon_min = 0.05  # TODO
+    alpha = 0.001
+    gamma = 0.5
+    epsilon = 1.0
+    epsilon_decay = 0.995
+    epsilon_min = 0.05
     ###
     model_name_load = 'dqn_2_2'
     model_name_save = model.Policy.model_name('dqn_' + str(board_size))
