@@ -165,4 +165,10 @@ cython_debug/
 .DS_Store
 *.pkl
 wandb/
-model/
+model/*
+
+# Backup models
+# 3x3 with 93% win rate against greedy player
+!model/dqn_3_greedy_93.pt
+# 4x4 with 96% win rate against greedy player
+!model/dqn_4_greedy_96.pt
