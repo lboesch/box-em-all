@@ -1,0 +1,38 @@
+# Node modules
+node_modules/
+
+# Build directories
+dist/
+build/
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Cache directories
+.cache/
+.next/
+out/
+.nuxt/
+.vuepress/dist/
+.parcel-cache/
+.sass-cache/
+.eslintcache
+.stylelintcache
+.turbo/
+.vercel/
+.netlify/
+.firebase/
+.yarn/
+.pnp.*
+
+# Log files
+yarn-error.log
+npm-debug.log
+pnpm-debug.log
+lerna-debug.log
+.npm/
+.pnpm-debug.log

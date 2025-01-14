@@ -2,16 +2,38 @@ from flask import Flask, request, jsonify
 from game import SinglePlayerOpponentDotsAndBoxes
 import player
 import uuid
+import os
+import pickle
+from datetime import datetime
 
 app = Flask(__name__)
 
-# Store game sessions
-sessions = {}
+sessions = {}  # fixme: use a redis or something
+
+available_opponents = [
+    {"name": "GreedyPlayer", "size": 2, "key": "greedy"},
+    {"name": "RandomPlayer", "size": 2, "key": "random"},
+    {"name": "GreedyPlayer", "size": 3, "key": "greedy"},
+    {"name": "GreedyPlayer", "size": 5, "key": "greedy"},
+    {"name": "GreedyPlayer", "size": 7, "key": "greedy"}
+]
+
+
+@app.route('/opponents', methods=['GET'])
+def list_opponents():
+    return jsonify({"available_opponents": available_opponents})
 
 @app.route('/start', methods=['POST'])
 def start_game():
     data = request.json
     size = data.get('size')
+    opponent_key = data.get('opponent_key')
+
+    opponent_info = next((opponent for opponent in available_opponents if opponent["size"] == size and opponent["key"] == opponent_key), None)
+
+    if not opponent_info:
+        return jsonify({"message": "Invalid opponent key or size. check /opponents for available options."}), 400
+
     player_1 = player.GreedyPlayer('GreedyPlayer1')
     game = SinglePlayerOpponentDotsAndBoxes(board_size=size, opponent=player_1)
     initial_board = game.board.copy().tolist()
@@ -44,6 +66,12 @@ def make_move():
     if not again:
         game.play_opponent()
     if game.is_game_over():
+        game.get_moves()
+        base_path = 'game-collection'
+        os.makedirs(base_path, exist_ok=True)
+        filename = os.path.join(base_path, game.player_1.player_name  + '_' + datetime.now().strftime("%Y%m%d%H%M%S") + '.pkl')
+        with open(filename, 'wb') as file:
+            pickle.dump(game.get_moves(), file)
         return jsonify({"message": "Game over", "moves_made": game.get_new_moves(), "winner": 1 if game.player_1.player_score > game.player_2.player_score else 2 if game.player_1.player_score < game.player_2.player_score else 0})
     return jsonify({"message": "Move made", "current_player": game.current_player.player_number, "moves_made": game.get_new_moves(), "board": game.board.tolist()})  
 
