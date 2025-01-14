@@ -380,10 +380,8 @@ class SinglePlayerOpponentDotsAndBoxes(DotsAndBoxes):
             return self.step_opponent()
 
     def step(self, row, col):
-        print('Making move **************************')
         if (row % 2 == 1 or col % 2 == 1) and self.board[row, col] == 0:  # Empty cell
             another_step = super().step(row, col)
-            print('another step', another_step)
             self.move_history.append(Move(
                 player_number=self.current_player.player_number,
                 row=row,
@@ -401,8 +399,6 @@ class SinglePlayerOpponentDotsAndBoxes(DotsAndBoxes):
     def step_opponent(self):
         self.current_player = self.player_1
         another_step = self.player_1.act(self) 
-        print('Opponent making move')
-        print(another_step)
         if self.is_game_over():
             return
         if another_step:
