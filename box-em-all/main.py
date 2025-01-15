@@ -53,11 +53,11 @@ def q_learning():
     episodes = 30000
     verification_episodes = 100
     ###
-    alpha = 0.6  # TODO
-    gamma = 0.5  # TODO
-    epsilon = 1.0  # TODO
-    epsilon_decay = 0.995  # TODO
-    epsilon_min = 0.01  # TODO
+    alpha = 0.6
+    gamma = 0.5
+    epsilon = 1.0
+    epsilon_decay = 0.995
+    epsilon_min = 0.01
     ###
     model_name_load = 'q_table_2_2'
     model_name_save = model.Policy.model_name('q_learning_' + str(board_size))
@@ -160,11 +160,11 @@ def dqn():
     episodes = 100000
     verification_episodes = 100
     ###
-    alpha = 0.001  # TODO
-    gamma = 0.5  # TODO
-    epsilon = 1.0  # TODO
-    epsilon_decay = 0.995  # TODO
-    epsilon_min = 0.05  # TODO
+    alpha = 0.001
+    gamma = 0.5
+    epsilon = 1.0
+    epsilon_decay = 0.995
+    epsilon_min = 0.05
     ###
     model_name_load = 'dqn_2_2'
     model_name_save = model.Policy.model_name('dqn_' + str(board_size))
@@ -204,13 +204,15 @@ def dqn():
     # Human Player
     if is_human:
         player_1 = player.HumanPlayer('HumanPlayer1')
-        player_2 = player.DQNPlayer('DQNPlayer2', model=model.DQN.load("dqn_2_20241220085750"))
+        player_2 = player.GreedyPlayer('GreedyPlayer1')
+        # player_2 = player.DQNPlayer('DQNPlayer2', model=model.DQN.load("dqn_2_20241220085750"))
         game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
         game.play(print_board=is_human)
         return
     
     # Game
     player_1 = player.GreedyPlayer('GreedyPlayer1')
+    # player_1 = player.RandomPlayer('RandomPlayer1')
     # player_1 = player.QPlayer('QPlayer1', model=model.QLearning.load("q_learning_2_20241215001739"))
     # player_1 = player.DQNPlayer('DQNPlayer1', model=model.DQNConv.load("dqn_3_20250112162030"))
     player_2 = player.DQNAgent('DQNAgent2', model=policy_net, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min, episodes=episodes)

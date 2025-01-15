@@ -50,17 +50,12 @@ class Random(Policy):
 class Greedy(Policy):
     # Predict next action
     def next_action(self, game):
-        action = ()
         # Prioritize actions that complete a box
-        for available_action in game.get_available_actions():
-            boxes = game.check_boxes(*available_action, sim=True)
-            if len(boxes[4]) > 0:
-                action = available_action
-                break
+        box_completing_moves = game.get_box_completing_moves()
+        if box_completing_moves:
+            return random.choice(box_completing_moves)
         # If no box-completing actions, pick a random available action
-        if not action:
-            action = random.choice(game.get_available_actions())
-        return action
+        return random.choice(game.get_available_actions())
 
 # ====================================================================================================
 # Q-learning
