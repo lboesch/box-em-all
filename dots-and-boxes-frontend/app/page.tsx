@@ -2,7 +2,7 @@
 
 import confetti from "canvas-confetti";
 import { useCallback, useEffect, useState } from "react";
-import { initializeGame, makeMove } from "./actions";
+import { getAvailablePlayers, initializeGame, makeMove } from "./actions";
 
 const BOARD_SIZE = 3;
 
@@ -11,12 +11,23 @@ function randomInRange(min: number, max: number) {
 }
 
 export default function DotsAndBoxes() {
+  const [availablePlayers, setAvailablePlayers] = useState([]);
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [gameState, setGameState] = useState(null);
   const [showWinner, setShowWinner] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
 
+  useEffect(() => {
+    (async () => {
+      setAvailablePlayers(await getAvailablePlayers());
+    })();
+  }, []);
+
   const startGame = async () => {
-    const response = await initializeGame(BOARD_SIZE);
+    const response = await initializeGame(
+      selectedPlayer.size,
+      selectedPlayer.key
+    );
     const data = response;
     setGameState({
       board: data.initial_board,
@@ -190,12 +201,39 @@ export default function DotsAndBoxes() {
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
       <h1 className="text-4xl font-bold mb-8">Dots and Boxes</h1>
       {!gameState ? (
-        <button
-          className="px-4 py-2 bg-blue-500 text-white rounded-lg"
-          onClick={startGame}
-        >
-          Start Game
-        </button>
+        <div className="flex flex-col items-center space-y-4">
+          <label className="text-lg font-medium" htmlFor="player-select">
+            Select Player:
+          </label>
+          <select
+            id="player-select"
+            className="p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onChange={(e) => {
+              const vals = e.target.value.split("-");
+              const selected = availablePlayers.find(
+                (player) =>
+                  player.key === vals[0] && player.size === parseInt(vals[1])
+              );
+              console.log("Selected player:", selected);
+              setSelectedPlayer(selected);
+            }}
+          >
+            {availablePlayers.map((player) => (
+              <option
+                key={`${player.key}-${player.size}`}
+                value={`${player.key}-${player.size}`}
+              >
+                {player.name} ({player.size}x{player.size})
+              </option>
+            ))}
+          </select>
+          <button
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg"
+            onClick={startGame}
+          >
+            Start Game
+          </button>
+        </div>
       ) : (
         <>
           <div className="flex flex-col items-center mb-4">
@@ -223,8 +261,12 @@ export default function DotsAndBoxes() {
             <div
               className="grid"
               style={{
-                gridTemplateColumns: `repeat(${BOARD_SIZE * 2 + 1}, auto)`,
-                gridTemplateRows: `repeat(${BOARD_SIZE * 2 + 1}, auto)`,
+                gridTemplateColumns: `repeat(${
+                  selectedPlayer.size * 2 + 1
+                }, auto)`,
+                gridTemplateRows: `repeat(${
+                  selectedPlayer.size * 2 + 1
+                }, auto)`,
               }}
             >
               {gameState.board.map((row, rowIndex) =>

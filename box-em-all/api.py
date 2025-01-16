@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from game import SinglePlayerOpponentDotsAndBoxes
 import player
+import model
 import uuid
 import os
 import pickle
@@ -14,9 +15,16 @@ available_opponents = [
     {"name": "GreedyPlayer", "size": 2, "key": "greedy"},
     {"name": "RandomPlayer", "size": 2, "key": "random"},
     {"name": "GreedyPlayer", "size": 3, "key": "greedy"},
+    {"name": "DQN", "size": 3, "key": "dqn3"},
     {"name": "GreedyPlayer", "size": 5, "key": "greedy"},
     {"name": "GreedyPlayer", "size": 7, "key": "greedy"}
 ]
+
+opponent_classes = {
+    "greedy": player.GreedyPlayer('GreedyPlayer'),
+    "random": player.RandomPlayer('RandomPlayer'),
+    "dqn3": player.DQNPlayer('DQNPlayer3', model=model.DQN.load('dqn_3', base_path='player-model'))
+}
 
 
 @app.route('/opponents', methods=['GET'])
@@ -34,8 +42,11 @@ def start_game():
     if not opponent_info:
         return jsonify({"message": "Invalid opponent key or size. check /opponents for available options."}), 400
 
-    player_1 = player.GreedyPlayer('GreedyPlayer1')
-    game = SinglePlayerOpponentDotsAndBoxes(board_size=size, opponent=player_1)
+    opponent_class = opponent_classes.get(opponent_key)
+    if not opponent_class:
+        opponent_class = player.GreedyPlayer('GreedyPlayer1')
+    
+    game = SinglePlayerOpponentDotsAndBoxes(board_size=size, opponent=opponent_class)
     initial_board = game.board.copy().tolist()
     game.play_opponent()
     session_id = str(uuid.uuid4())

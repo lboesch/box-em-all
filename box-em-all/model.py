@@ -105,8 +105,7 @@ class DQNBase(nn.Module, Policy):
     
     # Reading the object from a file
     @staticmethod
-    def load(name):
-        base_path = 'model'
+    def load(name, base_path = 'model'):
         filename = os.path.join(base_path, name + '.pt')
         with open(filename, 'rb') as file:
             return torch.load(file, weights_only=False)

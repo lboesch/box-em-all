@@ -2,7 +2,26 @@
 
 const API_BASE_URL = process.env.API_BASE_URL || "http://127.0.0.1:5000";
 
-export async function initializeGame(size: number) {
+export async function getAvailablePlayers() {
+  try {
+    console.log("API_BASE_URL:", API_BASE_URL);
+    const response = await fetch(`${API_BASE_URL}/opponents`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `HTTP error! status: ${response.status}, message: ${errorText}`
+      );
+    }
+
+    return (await response.json()).available_opponents || [];
+  } catch (error) {
+    console.error("Error fetching oponents:", error);
+    return [];
+  }
+}
+
+export async function initializeGame(size: number, playerKey: string) {
   try {
     console.log("Initializing game with size:", size);
     console.log("API_BASE_URL:", API_BASE_URL);
@@ -11,7 +30,7 @@ export async function initializeGame(size: number) {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ size }),
+      body: JSON.stringify({ size, opponent_key: playerKey }),
     });
 
     if (!response.ok) {
