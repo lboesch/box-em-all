@@ -50,20 +50,20 @@ python box-em-all/main.py
 
 **Playing the Game inline:**
 
-    You can play the game against the trained model by setting [is_human]to `True` in the `main.py`
+You can play the game against the trained model by setting [is_human]to `True` in the `main.py`
 
-    ```sh
-    python box-em-all/main.py
+```sh
+python box-em-all/main.py
     ```
 
 **Using Weights & Biases:**
 
-    If you want to log the training process using Weights & Biases, set `use_wandb` to `True` and make sure you are logged in to Weights & Biases:
+If you want to log the training process using Weights & Biases, set `use_wandb` to `True` and make sure you are logged in to Weights & Biases:
 
-    ```sh
-    wandb login
-    python box-em-all/main.py
-    ```
+```sh
+wandb login
+python box-em-all/main.py
+```
 
 #### Customization
 
