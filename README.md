@@ -13,10 +13,10 @@ Box 'Em All is a project that aims to solve the classic game of Dots & Boxes usi
 5. The game ends when all boxes are completed.
 6. The player with the most boxes at the end of the game wins.
 
-## Project Structure
+## Project
 
 
-## Installation
+### Installation
 
 1. **Clone the repository:**
 
@@ -39,37 +39,47 @@ Box 'Em All is a project that aims to solve the classic game of Dots & Boxes usi
     poetry shell
     ```
 
-## Running the Project
+### Training the Model
 
-1. **Training the Model:**
+To train the Q-learning or DQN model, run main and ensure the right runtime:
 
-    To train the Q-learning model, run:
+```sh
+python box-em-all/main.py
+```
 
-    ```sh
-    python box-em-all/main.py
-    ```
 
-    You can adjust the parameters in the [main](http://_vscodecontentref_/8) function of [main.py](http://_vscodecontentref_/9) to customize the training process.
+**Playing the Game inline:**
 
-2. **Playing the Game:**
-
-    You can play the game against the trained model by setting [is_human](http://_vscodecontentref_/10) to `True` in the [main](http://_vscodecontentref_/11) function of [main.py](http://_vscodecontentref_/12) and then running:
+    You can play the game against the trained model by setting [is_human]to `True` in the `main.py`
 
     ```sh
     python box-em-all/main.py
     ```
 
-3. **Using Weights & Biases:**
+**Using Weights & Biases:**
 
-    If you want to log the training process using Weights & Biases, set [use_wandb](http://_vscodecontentref_/13) to `True` and make sure you are logged in to Weights & Biases:
+    If you want to log the training process using Weights & Biases, set `use_wandb` to `True` and make sure you are logged in to Weights & Biases:
 
     ```sh
     wandb login
     python box-em-all/main.py
     ```
 
-## Customization
+#### Customization
 
-- **Board Size:** You can change the board size by modifying the [board_size](http://_vscodecontentref_/14) variable in the [main](http://_vscodecontentref_/15) function.
-- **Hyperparameters:** Adjust the [alpha](http://_vscodecontentref_/16), [gamma](http://_vscodecontentref_/17), and [epsilon](http://_vscodecontentref_/18) values in the [main](http://_vscodecontentref_/19) function to tune the Q-learning algorithm.
-- **Model Saving/Loading:** The model is saved and loaded from the [model](http://_vscodecontentref_/20) directory. You can change the model name by modifying the [model_name_load](http://_vscodecontentref_/21) and [model_name_save](http://_vscodecontentref_/22) variables.
+- **Board Size:** You can change the board size by modifying the `board_size`
+- **Hyperparameters:** Adjust the the hyperparameter for example like `alpha`, `gamma`, `epsilon` to tune the Q-learning algorithm.
+- **Model Saving/Loading:** The model is saved and loaded from the `model` directory. The model folder is not checked in to git and is only for your local environment. if you want to use a saved model, copy the file to the `player-model`folder. If you want to make it available as frontent player, add an entry to the opponents list in `box-em-all/api.py`
+
+### Game Interface
+
+![Frontend Screenshot](dots-and-boxes-frontend/screenshot.png)
+
+
+You can use the flask api to play dots and boxes games. To start the api, run:
+
+```sh
+python box-em-all/main.py
+```
+
+Based on this api, there is a frontend app (Next.js). See in the folder `dots-and-boxes-frontend` for Details.
