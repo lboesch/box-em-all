@@ -50,11 +50,12 @@ python box-em-all/main.py
 
 **Playing the Game inline:**
 
+
 You can play the game against the trained model by setting [is_human]to `True` in the `main.py`
 
 ```sh
 python box-em-all/main.py
-    ```
+```
 
 **Using Weights & Biases:**
 
