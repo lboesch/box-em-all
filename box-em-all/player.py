@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from collections import deque
 from segment_tree import MinSegmentTree, SumSegmentTree
+from termcolor import colored
 from typing import Deque, Dict, List, Tuple
 import copy
 import model
@@ -41,14 +42,17 @@ Human Player
 """
 class HumanPlayer(Player):
     def act(self, game):
-        # Let the human player choose an action using input
-        try:
-            action = map(int, input("Enter row and column for your action (e.g., 0 1): ").split())
-            another_step = game.step(*action)
-            return another_step
-        except ValueError:
-            print("Invalid input. Enter two integers separated by a space.")
-            return True
+        while True:
+            try:
+                # Let the human player choose an action using input
+                action = list(map(int, input("Enter row and column for your action (e.g., 0 1): ").split()))
+                if len(action) != 2:
+                    raise ValueError
+                another_step = game.step(*action)
+                return another_step
+            except ValueError:
+                print(colored("Invalid input. Enter two integers separated by a space.", "red"))
+                continue
 
 """
 Random Player

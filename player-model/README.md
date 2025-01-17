@@ -20,7 +20,7 @@ This document provides details about the trained player models, their training c
 - **Discount Factor (Gamma):** 0.5
 - **Verification Win Rate:** 59% against a greedy player
 
-## Deep Q-Network (with Convolution Layers and Rainbow Extensions) Models
+## Deep Q-Network (with Convolutional Layers and Rainbow Extensions) Models
 
 ### Model: dqnconv_3_greedy_93_greedy.pt
 - **Grid Size:** 3x3
