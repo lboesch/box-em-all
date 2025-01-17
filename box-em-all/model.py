@@ -51,9 +51,13 @@ class Greedy(Policy):
     # Predict next action
     def next_action(self, game):
         # Prioritize actions that complete a box
-        box_completing_moves = game.get_box_completing_moves()
-        if box_completing_moves:
-            return random.choice(box_completing_moves)
+        box_completing_actions = game.get_box_completing_actions(game.board, look_ahead=3)
+        if box_completing_actions:          
+            # Find the maximum value
+            max_value = max(box_completing_actions.values())
+            # Get the keys corresponding to the maximum value
+            best_actions = [key for key, value in box_completing_actions.items() if value == max_value]
+            return random.choice(best_actions)
         # If no box-completing actions, pick a random available action
         return random.choice(game.get_available_actions())
 

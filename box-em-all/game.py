@@ -15,7 +15,7 @@ class DotsAndBoxes:
         self.board_size = board_size
         self.total_boxes = board_size ** 2
         self.empty_board = self.__init_board()
-        self.all_actions = self.__init_actions()
+        self.all_actions = self.__init_actions(self.empty_board)
         # Initialize players
         self.player_1 = player_1
         self.player_1.player_number = 1
@@ -38,24 +38,28 @@ class DotsAndBoxes:
     Edges
     """
     # Check if edge is empty
-    def is_edge_empty(self, row, col):
-        return self.board[row, col] == 0
+    @staticmethod
+    def is_edge_empty(board, row, col):
+        return board[row, col] == 0
     
     # Check if edge is horizontal
-    def is_horizontal_edge(self, row, col):
+    @staticmethod
+    def is_horizontal_edge(row, col):
         return row % 2 == 0 and col % 2 == 1
     
     # Check if edge is vertical
-    def is_vertical_edge(self, row, col):
+    @staticmethod
+    def is_vertical_edge(row, col):
         return row % 2 == 1 and col % 2 == 0
 
     # Add edge
-    def add_edge(self, row, col):
-        self.board[row, col] = self.current_player.player_number
-    
+    def add_edge(self, board, row, col):
+        board[row, col] = self.current_player.player_number
+
     # Remove edge
-    def remove_edge(self, row, col):
-        self.board[row, col] = 0
+    @staticmethod
+    def remove_edge(board, row, col):
+        board[row, col] = 0
         
     # Get horizontal edges
     @staticmethod
@@ -71,10 +75,10 @@ class DotsAndBoxes:
     Boxes
     """
     # Check for any boxes that this edge might have completed
-    def check_boxes(self, row, col):
+    def check_boxes(self, board, row, col):
         boxes = {1: [], 2: [], 3: [], 4: []}
         for box_row, box_col in self.get_adjacent_boxes(row, col):
-            boxes[self.count_box_edges(box_row, box_col, row, col)].append((box_row, box_col))
+            boxes[self.count_box_edges(board, box_row, box_col, row, col)].append((box_row, box_col))
         return boxes
     
     def get_box_edges(self, row: int, col: int) -> List[Tuple[int, int]]:
@@ -103,23 +107,26 @@ class DotsAndBoxes:
                 adjacent_boxes.append((row, col + 1))
         return adjacent_boxes
 
-    def count_box_edges(self, row: int, col: int, row_check: int, col_check: int) -> int:
-        return sum(1 for edge in self.get_box_edges(row, col) if self.board[edge] != 0 or edge == (row_check, col_check))
+    def count_box_edges(self, board, row: int, col: int, row_check: int, col_check: int) -> int:
+        return sum(1 for edge in self.get_box_edges(row, col) if board[edge] != 0 or edge == (row_check, col_check))
 
     """
     Actions
     """
     # Initialize actions
-    def __init_actions(self):
+    @staticmethod
+    def __init_actions(board):
         actions = []
         # Horizontal edges
-        for row in range(0, self.empty_board.shape[0], 2):
-            for col in range(1, self.empty_board.shape[1], 2):
-                actions.append((row, col))
+        for row in range(0, board.shape[0], 2):
+            for col in range(1, board.shape[1], 2):
+                if DotsAndBoxes.is_edge_empty(board, row, col):
+                    actions.append((row, col))
         # Vertical edges
-        for row in range(1, self.empty_board.shape[0], 2):
-            for col in range(0, self.empty_board.shape[1], 2):
-                actions.append((row, col))
+        for row in range(1, board.shape[0], 2):
+            for col in range(0, board.shape[1], 2):
+                if DotsAndBoxes.is_edge_empty(board, row, col):
+                    actions.append((row, col))
         return actions
     
     # Return a list of available actions
@@ -132,13 +139,29 @@ class DotsAndBoxes:
         return random.sample(actions, len(actions))
     
     # Get box completing actions
-    def get_box_completing_moves(self) -> List[Tuple[int, int]]:
-        box_completing_moves = []
-        for row, col in self.get_available_actions():
+    def get_box_completing_actions(self, board, look_ahead) -> Dict[Tuple[int, int], int]:
+        assert look_ahead > 0
+        box_completing_actions = dict()
+        for row, col in self.__init_actions(board):
+            # Calculate the value of the action
+            value = 0
             for box_row, box_col in self.get_adjacent_boxes(row, col):
-                if self.count_box_edges(box_row, box_col, row, col) == 4:
-                    box_completing_moves.append((row, col))
-        return box_completing_moves
+                if self.count_box_edges(board, box_row, box_col, row, col) == 4:
+                    value += 1
+
+                    # Recursive call for look ahead
+                    if look_ahead > 1:
+                        # Simulate new action
+                        new_board = board.copy()
+                        self.add_edge(new_board, row, col)
+                        next_actions = self.get_box_completing_actions(new_board, look_ahead=look_ahead - 1)
+                        if next_actions:
+                            value += max(next_actions.values())
+
+            # Save action and value
+            box_completing_actions[(row, col)] = value
+                
+        return box_completing_actions
     
     # Check if a action is valid
     def is_valid_action(self, row, col):
@@ -201,9 +224,9 @@ class DotsAndBoxes:
             step.action = self.get_idx_by_action(row, col)
             # Perform step
             self.available_actions.remove((row, col))  # Remove action from list of available actions
-            self.add_edge(row, col)  # Add edge
+            self.add_edge(self.board, row, col)  # Add edge
             # Check for completed boxes
-            step.boxes = self.check_boxes(row, col) 
+            step.boxes = self.check_boxes(self.board, row, col) 
             if len(step.boxes[4]) > 0:
                 for completed_box in step.boxes[4]:
                     self.board[completed_box] = self.current_player.player_number
