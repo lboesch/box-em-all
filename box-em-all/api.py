@@ -15,15 +15,23 @@ available_opponents = [
     {"name": "GreedyPlayer", "size": 2, "key": "greedy"},
     {"name": "RandomPlayer", "size": 2, "key": "random"},
     {"name": "GreedyPlayer", "size": 3, "key": "greedy"},
+    {"name": "DQN Convolution", "size": 3, "key": "dqn3conv"},
     {"name": "DQN", "size": 3, "key": "dqn3"},
+    {"name": "DQN(legacy)", "size": 3, "key": "dqn3legacy"},
+    {"name": "DQN Convolution", "size": 4, "key": "dqn4conv"},
     {"name": "GreedyPlayer", "size": 5, "key": "greedy"},
+    {"name": "DQN Convolution", "size": 5, "key": "dqn5conv"},
     {"name": "GreedyPlayer", "size": 7, "key": "greedy"}
 ]
 
 opponent_classes = {
     "greedy": player.GreedyPlayer('GreedyPlayer'),
     "random": player.RandomPlayer('RandomPlayer'),
-    "dqn3": player.DQNPlayer('DQNPlayer3', model=model.DQN.load('dqn_3', base_path='player-model'))
+    "dqn3conv": player.DQNPlayer('DQNPlayer3', model=model.DQNConv.load('dqnconv_3_greedy_94_greedy')),
+    "dqn3l": player.DQNPlayer('DQNPlayer3', model=model.DQN.load('dqn_3_greedy_59_greedy')),
+    "dqn3legacy": player.DQNPlayer('DQNPlayer3', model=model.DQN.load('dqn_3')),
+    "dqn4conv": player.DQNPlayer('DQNPlayer4', model=model.DQNConv.load('dqnconv_4_greedy_96_greedy')),
+    "dqn5conv": player.DQNPlayer('DQNPlayer5', model=model.DQNConv.load('dqnconv_5_greedy_95_greedy'))
 }
 
 
