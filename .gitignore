@@ -163,20 +163,5 @@ cython_debug/
 
 # Misc
 .DS_Store
-*.pkl
 wandb/
-model/*
-
-# Backup models
-# Q-learning: 2x2, trained with greedy, 61% win rate against greedy player (gamma = 0.5)
-!model/qlearning_2_greedy_61_greedy.pkl
-# DQN: 3x3, trained with greedy, 59% win rate against greedy player (gamma = 0.5)
-!model/dqn_3_greedy_59_greedy.pt
-# DQNConv: 3x3, trained with greedy, 93% win rate against greedy player (gamma = 0.5)
-!model/dqnconv_3_greedy_93_greedy.pt
-# DQNConv: 3x3, trained with greedy, 94% win rate against greedy player (gamma = 0.4)
-!model/dqnconv_3_greedy_94_greedy.pt
-# DQNConv: 4x4, trained with greedy, 96% win rate against greedy player (gamma = 0.5)
-!model/dqnconv_4_greedy_96_greedy.pt
-# DQNConv: 5x5, trained with greedy, 95% win rate against greedy player (gamma = 0.5)
-!model/dqnconv_5_greedy_95_greedy.pt
+model/
