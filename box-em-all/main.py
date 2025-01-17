@@ -12,10 +12,9 @@ import wandb
 # ====================================================================================================
 debug = False
 use_gpu = False
-is_human = False
 do_train = True
 save_model = True
-use_wandb = True
+use_wandb = False
 wandb_project = "box-em-all"
 
 # Device
@@ -31,7 +30,7 @@ else:
 # Weight & Biases
 # ====================================================================================================
 def init_wandb(board_size, alpha, gamma, epsilon, epsilon_decay, epsilon_min, episodes, verification_episodes, model_name, game_state, tags):
-    if not is_human and do_train and use_wandb:
+    if do_train and use_wandb:
         wandb.login()
         run = wandb.init(
             # Set the project where this run will be logged
@@ -92,18 +91,12 @@ def q_learning():
     else:
         q_learning = model.QLearning.load(model_name_load)
     
-    # Human Player
-    if is_human:
-        player_1 = player.HumanPlayer('HumanPlayer1')
-        player_2 = player.QPlayer('QPlayer2', model=q_learning)
-        game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
-        game.play(print_board=is_human)
-        return
-    
-    # Game
+    # Training Game
     player_1 = player.GreedyPlayer('GreedyPlayer1')
     player_2 = player.QAgent('QAgent2', model=q_learning, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min)
     game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
+    
+    # Verification Game
     verification_player_1 = player.GreedyPlayer('GreedyPlayer1')
     # verification_player_1 = player.RandomPlayer('RandomPlayer1')
     verification_player_2 = player.QPlayer('QPlayer2', model=q_learning)
@@ -163,7 +156,7 @@ def q_learning():
 # ====================================================================================================
 def dqn():
     # Parameters
-    board_size = 3
+    board_size = 5
     episodes = 100000
     verification_episodes = 100
     ###
@@ -199,22 +192,15 @@ def dqn():
         policy_net = model.DQNConv.load(model_name_load)
     policy_net.to(device)
     
-    # Human Player
-    if is_human:
-        player_1 = player.HumanPlayer('HumanPlayer1')
-        player_2 = player.GreedyPlayer('GreedyPlayer1')
-        # player_2 = player.DQNPlayer('DQNPlayer2', model=model.DQNConv.load("dqnconf_3_greedy_94_greedy"))
-        game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
-        game.play(print_board=is_human)
-        return
-    
-    # Game
+    # Training Game
     player_1 = player.GreedyPlayer('GreedyPlayer1')
     # player_1 = player.RandomPlayer('RandomPlayer1')
     # player_1 = player.QPlayer('QPlayer1', model=model.QLearning.load("qlearning_2_greedy_61_greedy"))
     # player_1 = player.DQNPlayer('DQNPlayer1', model=model.DQNConv.load("dqnconf_3_greedy_94_greedy"))
     player_2 = player.DQNAgent('DQNAgent2', model=policy_net, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min, episodes=episodes)
     game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
+    
+    # Verification Game
     verification_player_1 = player.GreedyPlayer('GreedyPlayer1')
     # verification_player_1 = player.RandomPlayer('RandomPlayer1')
     # verification_player_1 = player_1
@@ -285,16 +271,17 @@ def dqn():
 # ====================================================================================================
 def verification():
     # Parameters
-    board_size = 3
+    board_size = 5
     episodes = 10000
                         
-    # Game
     # player_1 = player.RandomPlayer('RandomPlayer1')
     player_1 = player.GreedyPlayer('GreedyPlayer1')
     # player_1 = player.DQNPlayer('DQNPlayer1', model=model.DQNConv.load('dqnconv_3_greedy_94_greedy').eval().to(device))
+    
     # player_2 = player.QPlayer('QPlayer1', model=model.QLearning.load("qlearning_2_greedy_61_greedy"))
     # player_2 = player.DQNPlayer('DQNPlayer2', model=model.DQN.load('dqn_3_greedy_59_greedy').eval().to(device))
-    player_2 = player.DQNPlayer('DQNPlayer2', model=model.DQNConv.load('dqnconv_3_greedy_94_greedy').eval().to(device))
+    player_2 = player.DQNPlayer('DQNPlayer2', model=model.DQNConv.load('dqn_5_greedy_ext_97_greedy_ext').eval().to(device))
+    
     game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
             
     score = {'P1': 0, 'P2': 0, 'Tie': 0}
@@ -318,6 +305,21 @@ def verification():
     print(f"P1 ({game.player_1.player_name}) Win: {round(score['P1'] / episodes * 100, 2)}%")
     print(f"P2 ({game.player_2.player_name}) Win: {round(score['P2'] / episodes * 100, 2)}%")
     print("--------------------------------------------------------------------------------")
+    
+# ====================================================================================================
+# Human
+# ====================================================================================================
+def human():
+    # Parameters
+    board_size = 5
+    
+    player_1 = player.HumanPlayer('HumanPlayer1')
+    
+    # player_2 = player.GreedyPlayer('GreedyPlayer1')
+    player_2 = player.DQNPlayer('DQNPlayer2', model=model.DQNConv.load("dqn_5_greedy_ext_97_greedy_ext"))
+    
+    game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
+    game.play(print_board=True)
             
 # ====================================================================================================
 # Start
@@ -328,6 +330,7 @@ if __name__ == "__main__":
         "1) Q-learning\n" \
         "2) DQN\n" \
         "3) Verification\n" \
+        "4) Human\n" \
         "Enter your choice: "
     )
     
@@ -337,3 +340,5 @@ if __name__ == "__main__":
         dqn()  # Deep Q-network
     elif choice == "3":
         verification()  # Verification
+    elif choice == "4":
+        human()  # Human
