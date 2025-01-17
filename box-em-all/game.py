@@ -130,7 +130,16 @@ class DotsAndBoxes:
     def get_random_available_actions(self):
         actions = self.get_available_actions()
         return random.sample(actions, len(actions))
-
+    
+    # Get box completing actions
+    def get_box_completing_moves(self) -> List[Tuple[int, int]]:
+        box_completing_moves = []
+        for row, col in self.get_available_actions():
+            for box_row, box_col in self.get_adjacent_boxes(row, col):
+                if self.count_box_edges(box_row, box_col, row, col) == 4:
+                    box_completing_moves.append((row, col))
+        return box_completing_moves
+    
     # Check if a action is valid
     def is_valid_action(self, row, col):
         return (row, col) in self.available_actions
@@ -170,7 +179,7 @@ class DotsAndBoxes:
                 # Giving advantage to opponent
                 reward -= 0.5 * len(self.boxes[3])
                 # if len(self.boxes[3]) > 0:
-                #     reward += 1 * (self.next_state_score_diff - self.state_score_diff)
+                #     reward += 0.5 * len(game.get_box_completing_moves())
             # Game over
             if self.game_over:
                 # Winning a game
@@ -289,14 +298,6 @@ class DotsAndBoxes:
     def is_game_over(self):
         return True if not self.get_available_actions() else False
     
-    def get_box_completing_moves(self) -> List[Tuple[int, int]]:
-        box_completing_moves = []
-        for row, col in self.get_available_actions():
-            for box_row, box_col in self.get_adjacent_boxes(row, col):
-                if self.count_box_edges(box_row, box_col, row, col) == 4:
-                    box_completing_moves.append((row, col))
-        return box_completing_moves
-
     # Play game
     def play(self, print_board=None):
         self.episode_count += 1

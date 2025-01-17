@@ -15,8 +15,17 @@ use_gpu = False
 is_human = False
 do_train = True
 save_model = True
-use_wandb = False
+use_wandb = True
 wandb_project = "box-em-all"
+
+# Device
+if use_gpu:
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif torch.backends.mps.is_available():  # TODO very slow on Apple M1
+        device = torch.device("mps")
+else:
+    device = torch.device("cpu")
     
 # ====================================================================================================
 # Weight & Biases
@@ -50,17 +59,17 @@ def q_learning():
     # Parameters
     extend_q_table = False
     board_size = 2
-    episodes = 30000
+    episodes = 100000
     verification_episodes = 100
     ###
     alpha = 0.6
-    gamma = 0.5
+    gamma = 0.4
     epsilon = 1.0
     epsilon_decay = 0.995
-    epsilon_min = 0.01
+    epsilon_min = 0.05
     ###
-    model_name_load = 'q_table_2_2'
-    model_name_save = model.Policy.model_name('q_learning_' + str(board_size))
+    model_name_load = 'qlearning_2_greedy_61_greedy'
+    model_name_save = model.Policy.model_name('qlearning_' + str(board_size))
 
     # Weights & Biases
     init_wandb(
@@ -87,7 +96,7 @@ def q_learning():
     if is_human:
         player_1 = player.HumanPlayer('HumanPlayer1')
         player_2 = player.QPlayer('QPlayer2', model=q_learning)
-        game = DotsAndBoxes(board_sizes=board_size, player_1=player_1, player_2=player_2)
+        game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
         game.play(print_board=is_human)
         return
     
@@ -152,8 +161,6 @@ def q_learning():
 # ====================================================================================================
 # Deep Q-network (DQN)
 # ====================================================================================================
-# https://github.com/Floni/AI_dotsandboxes/blob/master/dotsandboxesplayer.py
-# ====================================================================================================
 def dqn():
     # Parameters
     board_size = 3
@@ -161,12 +168,12 @@ def dqn():
     verification_episodes = 100
     ###
     alpha = 0.001
-    gamma = 0.5
+    gamma = 0.4
     epsilon = 1.0
     epsilon_decay = 0.995
     epsilon_min = 0.05
     ###
-    model_name_load = 'dqn_2_2'
+    model_name_load = 'dqnconv_3_greedy_94_greedy'
     model_name_save = model.Policy.model_name('dqn_' + str(board_size))
     
     # Weights & Biases
@@ -183,22 +190,13 @@ def dqn():
         game_state="with-both-players",
         tags=["dqn"]
     )
-    
-    # Device
-    if use_gpu:
-        if torch.cuda.is_available():
-            device = torch.device("cuda")
-        elif torch.backends.mps.is_available():  # TODO very slow on Apple M1
-            device = torch.device("mps")
-    else:
-        device = torch.device("cpu")
         
     # Model
     if do_train:
         # policy_net = model.DQN(board_size=board_size)
         policy_net = model.DQNConv(board_size=board_size)
     else:
-        policy_net = model.DQN.load(model_name_load)
+        policy_net = model.DQNConv.load(model_name_load)
     policy_net.to(device)
     
     # Human Player
@@ -213,8 +211,8 @@ def dqn():
     # Game
     player_1 = player.GreedyPlayer('GreedyPlayer1')
     # player_1 = player.RandomPlayer('RandomPlayer1')
-    # player_1 = player.QPlayer('QPlayer1', model=model.QLearning.load("q_learning_2_20241215001739"))
-    # player_1 = player.DQNPlayer('DQNPlayer1', model=model.DQNConv.load("dqn_3_20250112162030"))
+    # player_1 = player.QPlayer('QPlayer1', model=model.QLearning.load("qlearning_2_greedy_61_greedy"))
+    # player_1 = player.DQNPlayer('DQNPlayer1', model=model.DQNConv.load("dqnconf_3_greedy_94_greedy"))
     player_2 = player.DQNAgent('DQNAgent2', model=policy_net, alpha=alpha, gamma=gamma, epsilon=epsilon, epsilon_decay=epsilon_decay, epsilon_min=epsilon_min, episodes=episodes)
     game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
     verification_player_1 = player.GreedyPlayer('GreedyPlayer1')
@@ -233,7 +231,6 @@ def dqn():
         game.play() 
         rewards.append(game.player_2.total_reward)
         losses.extend(game.player_2.losses)
-        # TODO summary over all episode and reset_stats for training or verification
             
         if debug or (episode > 0 and episode % 1000 == 0): 
             # Verification
@@ -269,38 +266,35 @@ def dqn():
                 wandb.log(
                     step=episode,
                     data={
-                        "train-loss:": losses[episode],
+                        "last-train-loss:": losses[-1],
+                        "mean-train-loss:": statistics.mean(losses),
+                        "last-train-reward:": rewards[-1],
+                        "mean-train-reward:": statistics.mean(rewards),
                         f"win-p1-{verification_game.player_1.player_name}": round(score['P1'] / verification_episodes * 100, 2),
                         f"win-p2-{verification_game.player_2.player_name}": round(score['P2'] / verification_episodes * 100, 2),
                         "tie": round(score['Tie'] / verification_episodes * 100, 2)
                     }
                 )
                 
-    if do_train and save_model:
-        # Save model
-        policy_net.save(model_name_save)
+            if do_train and save_model:
+                # Save model
+                policy_net.save(model_name_save)
         
 # ====================================================================================================
 # Verification
 # ====================================================================================================
 def verification():
     # Parameters
-    board_size = 4
+    board_size = 3
     episodes = 10000
-    model_name_load = 'dqn_4_20250113221012'
-    
-    # Device
-    if use_gpu:
-        if torch.cuda.is_available():
-            device = torch.device("cuda")
-        elif torch.backends.mps.is_available():  # TODO very slow on Apple M1
-            device = torch.device("mps")
-    else:
-        device = torch.device("cpu")
                         
     # Game
+    # player_1 = player.RandomPlayer('RandomPlayer1')
     player_1 = player.GreedyPlayer('GreedyPlayer1')
-    player_2 = player.DQNPlayer('DQNPlayer2', model=model.DQNConv.load(model_name_load).eval().to(device))
+    # player_1 = player.DQNPlayer('DQNPlayer1', model=model.DQNConv.load('dqnconv_3_greedy_94_greedy').eval().to(device))
+    # player_2 = player.QPlayer('QPlayer1', model=model.QLearning.load("qlearning_2_greedy_61_greedy"))
+    # player_2 = player.DQNPlayer('DQNPlayer2', model=model.DQN.load('dqn_3_greedy_59_greedy').eval().to(device))
+    player_2 = player.DQNPlayer('DQNPlayer2', model=model.DQNConv.load('dqnconv_3_greedy_94_greedy').eval().to(device))
     game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
             
     score = {'P1': 0, 'P2': 0, 'Tie': 0}
