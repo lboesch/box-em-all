@@ -280,7 +280,7 @@ def verification():
     
     # player_2 = player.QPlayer('QPlayer1', model=model.QLearning.load("qlearning_2_greedy_61_greedy"))
     # player_2 = player.DQNPlayer('DQNPlayer2', model=model.DQN.load('dqn_3_greedy_59_greedy').eval().to(device))
-    player_2 = player.DQNPlayer('DQNPlayer2', model=model.DQNConv.load('dqn_5_greedy_ext_97_greedy_ext').eval().to(device))
+    player_2 = player.DQNPlayer('DQNPlayer2', model=model.DQNConv.load('dqnconv_5_greedy_ext_99_greedy_ext').eval().to(device))
     
     game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
             
@@ -316,7 +316,7 @@ def human():
     player_1 = player.HumanPlayer('HumanPlayer1')
     
     # player_2 = player.GreedyPlayer('GreedyPlayer1')
-    player_2 = player.DQNPlayer('DQNPlayer2', model=model.DQNConv.load("dqn_5_greedy_ext_97_greedy_ext"))
+    player_2 = player.DQNPlayer('DQNPlayer2', model=model.DQNConv.load("dqnconv_5_greedy_ext_99_greedy_ext"))
     
     game = DotsAndBoxes(board_size=board_size, player_1=player_1, player_2=player_2)
     game.play(print_board=True)
