@@ -19,7 +19,9 @@ export default function DotsAndBoxes() {
 
   useEffect(() => {
     (async () => {
-      setAvailablePlayers(await getAvailablePlayers());
+      const players = await getAvailablePlayers();
+      setAvailablePlayers(players);
+      setSelectedPlayer(players[0]);
     })();
   }, []);
 
@@ -217,6 +219,11 @@ export default function DotsAndBoxes() {
               console.log("Selected player:", selected);
               setSelectedPlayer(selected);
             }}
+            value={
+              selectedPlayer
+                ? `${selectedPlayer.key}-${selectedPlayer.size}`
+                : ""
+            }
           >
             {availablePlayers.map((player) => (
               <option
