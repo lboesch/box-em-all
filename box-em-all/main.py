@@ -40,7 +40,7 @@ def init_wandb(board_size, alpha, gamma, epsilon, epsilon_decay, epsilon_min, ep
                 "board-size": board_size,
                 "alpha": alpha,
                 "gamma": gamma,
-                "epsilon": epsilon,
+                "epsilon-max": epsilon,
                 "epsilon-decay": epsilon_decay,
                 "epsilon-min": epsilon_min,
                 "episodes": episodes,
@@ -103,7 +103,7 @@ def q_learning():
     verification_game = DotsAndBoxes(board_size=board_size, player_1=verification_player_1, player_2=verification_player_2)
     
     rewards = []
-    for episode in (pbar := tqdm(range(episodes if do_train else 1))):
+    for episode in (pbar := tqdm(range(1, episodes + 1 if do_train else 2))):
         # Training
         pbar.set_description(f"Training Episode {episode}")
         if do_train:
@@ -111,10 +111,10 @@ def q_learning():
             game.play()
             rewards.append(game.player_2.total_reward)
     
-        if debug or (episode > 0 and episode % 1000 == 0): 
+        if debug or (episode % 1000 == 0): 
             # Verification
             score = {'P1': 0, 'P2': 0, 'Tie': 0}
-            for _ in range(verification_episodes):
+            for _ in range(1, verification_episodes + 1):
                 verification_game.reset()
                 verification_game.play()
                 
@@ -129,6 +129,7 @@ def q_learning():
             # Print verification score accross all verification episodes
             print("--------------------------------------------------------------------------------")
             print(f"Last Total Reward: {rewards[-1]}")
+            print(f"Mean Last 100 Total Reward: {statistics.mean(rewards[-100:])}")
             print(f"Mean Total Rewards: {statistics.mean(rewards)}")
             print("--------------------------------------------------------------------------------")
             print(f"Verification score in training episode {episode}: {score}")
@@ -141,11 +142,12 @@ def q_learning():
                 wandb.log(
                     step=episode,
                     data={
-                        "last-train-reward:": rewards[-1],
-                        "mean-train-reward:": statistics.mean(rewards),
-                        f"win-p1-{verification_game.player_1.player_name}": round(score['P1'] / verification_episodes * 100, 2),
-                        f"win-p2-{verification_game.player_2.player_name}": round(score['P2'] / verification_episodes * 100, 2),
-                        "tie": round(score['Tie'] / verification_episodes * 100, 2,),
+                        "last-train-reward": rewards[-1],
+                        "mean-last-100-train-reward": statistics.mean(rewards[-100:]),
+                        "mean-train-reward": statistics.mean(rewards),
+                        f"win-p1": round(score['P1'] / verification_episodes * 100, 2),
+                        f"win-p2": round(score['P2'] / verification_episodes * 100, 2),
+                        "tie": round(score['Tie'] / verification_episodes * 100, 2),
                         "epsilon": player_2.epsilon
                     }
                 )
@@ -212,7 +214,7 @@ def dqn():
     
     rewards = []
     losses = []
-    for episode in (pbar := tqdm(range(episodes if do_train else 1))):
+    for episode in (pbar := tqdm(range(1, episodes + 1 if do_train else 2))):
         # Training
         pbar.set_description(f"Training Episode {episode}")
         policy_net.train()
@@ -221,12 +223,12 @@ def dqn():
         rewards.append(game.player_2.total_reward)
         losses.extend(game.player_2.losses)
             
-        if debug or (episode > 0 and episode % 1000 == 0): 
+        if debug or (episode % 1000 == 0): 
             # Verification
             score = {'P1': 0, 'P2': 0, 'Tie': 0}
             policy_net.eval()
             with torch.no_grad():
-                for _ in range(verification_episodes):
+                for _ in range(1, verification_episodes + 1):
                     verification_game.reset()
                     verification_game.play()
                     
@@ -243,6 +245,7 @@ def dqn():
             print(f"Last Loss: {losses[-1]}")
             print(f"Mean Losses: {statistics.mean(losses)}")
             print(f"Last Total Reward: {rewards[-1]}")
+            print(f"Mean Last 100 Total Reward: {statistics.mean(rewards[-100:])}")
             print(f"Mean Total Rewards: {statistics.mean(rewards)}")
             print("--------------------------------------------------------------------------------")
             print(f"Verification score in training episode {episode}: {score}")
@@ -255,13 +258,15 @@ def dqn():
                 wandb.log(
                     step=episode,
                     data={
-                        "last-train-loss:": losses[-1],
-                        "mean-train-loss:": statistics.mean(losses),
-                        "last-train-reward:": rewards[-1],
-                        "mean-train-reward:": statistics.mean(rewards),
-                        f"win-p1-{verification_game.player_1.player_name}": round(score['P1'] / verification_episodes * 100, 2),
-                        f"win-p2-{verification_game.player_2.player_name}": round(score['P2'] / verification_episodes * 100, 2),
-                        "tie": round(score['Tie'] / verification_episodes * 100, 2)
+                        "last-train-loss": losses[-1],
+                        "mean-train-loss": statistics.mean(losses),
+                        "last-train-reward": rewards[-1],
+                        "mean-last-100-train-reward": statistics.mean(rewards[-100:]),
+                        "mean-train-reward": statistics.mean(rewards),
+                        f"win-p1": round(score['P1'] / verification_episodes * 100, 2),
+                        f"win-p2": round(score['P2'] / verification_episodes * 100, 2),
+                        "tie": round(score['Tie'] / verification_episodes * 100, 2),
+                        "epsilon": player_2.epsilon
                     }
                 )
                 
@@ -289,7 +294,7 @@ def verification():
             
     score = {'P1': 0, 'P2': 0, 'Tie': 0}
     with torch.no_grad():
-        for episode in (pbar := tqdm(range(episodes))):
+        for episode in (pbar := tqdm(range(1, episodes + 1))):
             pbar.set_description(f"Verification Episode {episode}")
             game.reset()
             game.play()
