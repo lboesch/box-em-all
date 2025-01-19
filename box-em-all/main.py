@@ -14,7 +14,7 @@ debug = False
 use_gpu = False
 do_train = True
 save_model = True
-use_wandb = False
+use_wandb = True
 wandb_project = "box-em-all"
 
 # Device
@@ -57,7 +57,7 @@ def init_wandb(board_size, alpha, gamma, epsilon, epsilon_decay, epsilon_min, ep
 def q_learning():
     # Parameters
     extend_q_table = False
-    board_size = 2
+    board_size = 3
     episodes = 100000
     verification_episodes = 100
     ###
@@ -81,7 +81,7 @@ def q_learning():
         episodes=episodes,
         verification_episodes=verification_episodes,
         model_name=model_name_save,
-        game_state="with-both-players",
+        game_state="final game design",
         tags=["q-learning"]
     )
     
@@ -141,9 +141,12 @@ def q_learning():
                 wandb.log(
                     step=episode,
                     data={
+                        "last-train-reward:": rewards[-1],
+                        "mean-train-reward:": statistics.mean(rewards),
                         f"win-p1-{verification_game.player_1.player_name}": round(score['P1'] / verification_episodes * 100, 2),
                         f"win-p2-{verification_game.player_2.player_name}": round(score['P2'] / verification_episodes * 100, 2),
-                        "tie": round(score['Tie'] / verification_episodes * 100, 2)
+                        "tie": round(score['Tie'] / verification_episodes * 100, 2,),
+                        "epsilon": player_2.epsilon
                     }
                 )
 
@@ -156,7 +159,7 @@ def q_learning():
 # ====================================================================================================
 def dqn():
     # Parameters
-    board_size = 5
+    board_size = 3
     episodes = 100000
     verification_episodes = 100
     ###
@@ -180,7 +183,7 @@ def dqn():
         episodes=episodes,
         verification_episodes=verification_episodes,
         model_name=model_name_save,
-        game_state="with-both-players",
+        game_state="final game design",
         tags=["dqn"]
     )
         
