@@ -31,7 +31,6 @@ class Policy(ABC):
     # Reading the object from a file
     @staticmethod
     def load(name, base_path = 'player-model'):
-        base_path = 'model'
         filename = os.path.join(base_path, name + '.pkl')
         with open(filename, 'rb') as file:
             return pickle.load(file)
