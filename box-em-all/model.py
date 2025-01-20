@@ -70,11 +70,14 @@ class QLearning(Policy):
         
     # Get Q-value
     def get_q_value(self, state, action):
-        return self.q_table.get((state.tobytes(), action), 0)
+        return self.q_table.get((self.get_state(state).tobytes(), action), 0)
     
     # Update Q-value    
     def update_q_value(self, state, action, q_value):
-        self.q_table[(state.tobytes(), action)] = q_value
+        self.q_table[(self.get_state(state).tobytes(), action)] = q_value
+        
+    def get_state(self, board):
+        return DotsAndBoxes.get_game_state(board)
         
     # Predict next action
     def next_action(self, game):
